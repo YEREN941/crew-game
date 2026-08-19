@@ -90,6 +90,141 @@
   @keyframes flash{50%{background:rgba(245,196,81,.28)}}
   .lever{display:flex;gap:9px;flex-wrap:wrap;justify-content:center}
 
+  /* 방송형 종목 룰렛 */
+  .game-draw-panel{
+    position:relative;overflow:hidden;
+    border:1px solid #3a4862;border-radius:16px;
+    background:
+      radial-gradient(500px 160px at 50% -30px,rgba(91,140,255,.18),transparent 70%),
+      linear-gradient(180deg,#182131,#111720);
+    padding:17px;margin-bottom:13px;
+  }
+  .game-draw-panel::before{
+    content:"";position:absolute;inset:0;pointer-events:none;
+    background:linear-gradient(115deg,rgba(255,255,255,.04),transparent 34%,transparent 70%,rgba(245,196,81,.04));
+  }
+  .game-draw-head{position:relative;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .game-draw-title{font-size:16px;font-weight:900;letter-spacing:-.2px}
+  .game-draw-sub{font-size:12.5px;color:var(--muted)}
+  .game-draw-actions{position:relative;display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:12px}
+  .game-roulette-btn{
+    min-width:190px;
+    background:linear-gradient(180deg,#f6d16d,#d9a52d);
+    border-color:#bf8f22;color:#211906;font-weight:950;
+    box-shadow:0 5px 18px rgba(214,165,45,.16);
+  }
+
+  .game-roulette-modal{
+    position:fixed;inset:0;z-index:120;display:none;
+    align-items:center;justify-content:center;padding:18px;
+    background:
+      radial-gradient(900px 600px at 50% 45%,rgba(31,51,82,.82),rgba(5,8,13,.96) 72%),
+      rgba(4,7,11,.94);
+    backdrop-filter:blur(8px);
+  }
+  .game-roulette-modal.on{display:flex}
+  .gr-stage{
+    width:min(860px,96vw);height:min(760px,94vh);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    position:relative;
+  }
+  .gr-top{text-align:center;margin-bottom:14px;position:relative;z-index:2}
+  .gr-kicker{
+    color:#d8b04f;font-size:12px;font-weight:900;letter-spacing:3px;
+    text-transform:uppercase;margin-bottom:4px;
+  }
+  .gr-title{
+    margin:0;font-size:clamp(28px,4vw,48px);line-height:1;
+    letter-spacing:-1.5px;font-weight:950;color:#eef3fb;
+    text-shadow:0 4px 30px rgba(0,0,0,.5);
+  }
+  .gr-sub{font-size:13px;color:#9ba9bc;margin-top:8px}
+
+  .gr-machine{
+    width:min(650px,92vw);height:min(520px,64vh);
+    position:relative;overflow:hidden;border-radius:30px;
+    border:1px solid rgba(255,255,255,.18);
+    background:linear-gradient(180deg,rgba(241,246,251,.11),rgba(15,22,33,.58));
+    box-shadow:
+      0 35px 100px rgba(0,0,0,.46),
+      inset 0 1px 0 rgba(255,255,255,.18);
+  }
+  .gr-machine::before,
+  .gr-machine::after{
+    content:"";position:absolute;left:0;right:0;height:30%;z-index:4;pointer-events:none;
+  }
+  .gr-machine::before{top:0;background:linear-gradient(180deg,#101722 5%,rgba(16,23,34,.82) 35%,transparent)}
+  .gr-machine::after{bottom:0;background:linear-gradient(0deg,#101722 5%,rgba(16,23,34,.82) 35%,transparent)}
+  .gr-track{
+    position:absolute;left:26px;right:26px;top:0;
+    display:flex;flex-direction:column;gap:12px;
+    will-change:transform;transform:translateY(0);
+  }
+  .gr-item{
+    height:104px;flex:none;border-radius:26px;
+    display:flex;align-items:center;justify-content:space-between;gap:20px;
+    padding:0 34px;position:relative;overflow:hidden;
+    color:#fff;border:1px solid rgba(255,255,255,.44);
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,.36),
+      0 8px 24px rgba(0,0,0,.12);
+  }
+  .gr-item::after{
+    content:"";position:absolute;inset:0;pointer-events:none;
+    background:
+      linear-gradient(105deg,rgba(255,255,255,.22),transparent 28%,transparent 70%,rgba(255,255,255,.07));
+  }
+  .gr-item-name{
+    position:relative;z-index:1;font-size:clamp(22px,3vw,35px);
+    font-weight:950;letter-spacing:-1px;text-shadow:0 2px 4px rgba(0,0,0,.25);
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  }
+  .gr-item-meta{
+    position:relative;z-index:1;text-align:right;font-size:12px;font-weight:800;
+    color:rgba(255,255,255,.86);white-space:nowrap;
+  }
+  .gr-focus{
+    position:absolute;z-index:6;left:14px;right:14px;top:50%;height:116px;
+    transform:translateY(-50%);pointer-events:none;border-radius:30px;
+    border:3px solid rgba(255,255,255,.78);
+    box-shadow:
+      0 0 0 1px rgba(208,170,69,.65),
+      0 0 36px rgba(245,196,81,.18),
+      inset 0 0 28px rgba(255,255,255,.06);
+  }
+  .gr-focus::before,.gr-focus::after{
+    content:"";position:absolute;top:50%;width:17px;height:35px;
+    background:#f0c85d;transform:translateY(-50%);
+    clip-path:polygon(0 0,100% 50%,0 100%);
+    filter:drop-shadow(0 2px 5px rgba(0,0,0,.4));
+  }
+  .gr-focus::before{left:-20px}
+  .gr-focus::after{right:-20px;transform:translateY(-50%) rotate(180deg)}
+  .gr-result{
+    min-height:48px;margin-top:15px;text-align:center;
+    font-size:14px;color:#9facc0;position:relative;z-index:2;
+  }
+  .gr-result strong{
+    display:block;color:#f3d77f;font-size:24px;font-weight:950;
+    letter-spacing:-.5px;margin-top:2px;
+  }
+  .gr-actions{
+    display:flex;gap:8px;justify-content:center;flex-wrap:wrap;
+    margin-top:10px;position:relative;z-index:2;
+  }
+  .gr-actions button{min-width:110px}
+  .gr-stage.spinning .gr-actions{opacity:.35;pointer-events:none}
+  .gr-stage.spinning .gr-result{opacity:.45}
+
+  @media(max-width:620px){
+    .gr-stage{height:96vh}
+    .gr-machine{height:500px}
+    .gr-track{left:14px;right:14px}
+    .gr-item{height:96px;border-radius:22px;padding:0 22px}
+    .gr-focus{height:108px;border-radius:25px}
+    .gr-item-meta{display:none}
+  }
+
   /* 라운드 */
   .round{background:var(--panel);border:1px solid var(--line);border-radius:16px;margin-bottom:14px;overflow:hidden}
   .round.active{border-color:#3c5387;box-shadow:0 0 0 3px rgba(91,140,255,.09)}
@@ -207,7 +342,7 @@
     .wheelwrap,#wheel{width:250px;height:250px}
   }
   @media print{
-    header.top,nav.tabs,button,.noprint,.slotbox,.modal{display:none!important}
+    header.top,nav.tabs,button,.noprint,.slotbox,.modal,.game-roulette-modal{display:none!important}
     body{background:#fff;color:#000}
     .card,.round,.team,.crewcard,.setup{background:#fff;border-color:#bbb;box-shadow:none}
     .sub,.hint{color:#555}
@@ -244,6 +379,26 @@
       <button id="mBurst">한 번에 전부</button>
       <button class="primary" id="mApply" style="display:none">적용하기</button>
       <button class="ghost" id="mClose">닫기</button>
+    </div>
+  </div>
+</div>
+
+<div class="game-roulette-modal" id="gameRouletteModal" aria-hidden="true">
+  <div class="gr-stage" id="gameRouletteStage">
+    <div class="gr-top">
+      <div class="gr-kicker">GAME SELECTION</div>
+      <h2 class="gr-title">GAME ROULETTE</h2>
+      <div class="gr-sub" id="grSub">이번 라운드의 종목을 추첨합니다</div>
+    </div>
+    <div class="gr-machine" id="grMachine">
+      <div class="gr-track" id="grTrack"></div>
+      <div class="gr-focus"></div>
+    </div>
+    <div class="gr-result" id="grResult">룰렛을 돌려 종목을 결정하세요.</div>
+    <div class="gr-actions">
+      <button class="gold" id="grSpinBtn">🎰 룰렛 돌리기</button>
+      <button id="grRespInBtn" style="display:none">다시 돌리기</button>
+      <button class="ghost" id="grCloseBtn">닫기</button>
     </div>
   </div>
 </div>
@@ -389,7 +544,12 @@ function cleanRemoteState(d){
 }
 function interactionBusy(){
   const modal=document.getElementById('modal');
-  return !!(W&&W.spinning)||!!(modal&&modal.classList.contains('on'))||Object.values(spinning||{}).some(Boolean);
+  const gm=document.getElementById('gameRouletteModal');
+  return !!(W&&W.spinning)
+    ||!!(modal&&modal.classList.contains('on'))
+    ||!!(gm&&gm.classList.contains('on'))
+    ||!!(GR&&GR.spinning)
+    ||Object.values(spinning||{}).some(Boolean);
 }
 function applyRemoteState(d,label){
   if(!validState(d))return;
@@ -756,7 +916,172 @@ function rouletteLineup(r,cid,burst){
   if(burst) setTimeout(()=>document.getElementById('mBurst').click(),260);
 }
 
-/* ================= 슬롯머신 ================= */
+/* ================= 방송형 종목 룰렛 ================= */
+const GR={
+  roundId:null,
+  spinning:false,
+  result:null,
+  pool:[],
+  target:null,
+  tickTimer:null
+};
+const GR_COLORS=[
+  ['#9e90e7','#7262ca'],
+  ['#d291b2','#b85f8d'],
+  ['#d9a97d','#b77a49'],
+  ['#a4bf7f','#748f4f'],
+  ['#d17e78','#aa4f4a'],
+  ['#77a9ce','#4d83ad'],
+  ['#88b8a4','#5d947c'],
+  ['#b59bd9','#806bb0']
+];
+
+function grColor(i){
+  return GR_COLORS[i%GR_COLORS.length];
+}
+function grItemHTML(g,i){
+  const c=grColor(i);
+  const meta=(Number(g.perTeam)?'팀당 '+g.perTeam+'명':'인원 제한 없음')+(g.note?' · '+g.note:'');
+  return '<div class="gr-item" data-gid="'+g.id+'" style="background:linear-gradient(135deg,'+c[0]+','+c[1]+')">'
+    +'<div class="gr-item-name">'+esc(g.name)+'</div>'
+    +'<div class="gr-item-meta">'+esc(meta)+'</div></div>';
+}
+function buildGameRouletteTrack(pool,target){
+  const track=document.getElementById('grTrack');
+  const seq=[];
+  // 충분히 길게 반복해서 실제 방송 룰렛처럼 여러 종목이 지나가게 합니다.
+  for(let cycle=0;cycle<8;cycle++){
+    const copy=pool.slice();
+    for(let i=copy.length-1;i>0;i--){
+      const j=Math.random()*(i+1)|0;
+      [copy[i],copy[j]]=[copy[j],copy[i]];
+    }
+    seq.push(...copy);
+  }
+  // 마지막 구간에 당첨 종목을 확실히 배치
+  const tail=pool.slice();
+  for(let i=tail.length-1;i>0;i--){
+    const j=Math.random()*(i+1)|0;
+    [tail[i],tail[j]]=[tail[j],tail[i]];
+  }
+  seq.push(...tail);
+  let targetIndex=Math.max(0,seq.length-3);
+  seq[targetIndex]=target;
+
+  track.innerHTML=seq.map((g,i)=>grItemHTML(g,i)).join('');
+  track.style.transition='none';
+  track.style.transform='translateY(0px)';
+  return {seq,targetIndex};
+}
+function grTargetOffset(targetIndex){
+  const machine=document.getElementById('grMachine');
+  const track=document.getElementById('grTrack');
+  const item=track.children[targetIndex];
+  if(!machine||!item)return 0;
+  return machine.clientHeight/2-(item.offsetTop+item.offsetHeight/2);
+}
+function openGameRoulette(r,autoSpin){
+  if(!r)return;
+  const pool=availableGames(r.id);
+  if(!pool.length){toast('남은 종목이 없습니다. 종목 탭에서 사용 종목을 확인해주세요.');return;}
+  GR.roundId=r.id;GR.pool=pool;GR.result=null;GR.target=null;
+  document.getElementById('gameRouletteModal').classList.add('on');
+  document.getElementById('gameRouletteModal').setAttribute('aria-hidden','false');
+  document.getElementById('grSub').textContent='R'+(S.rounds.indexOf(r)+1)+' · '+MODE_LABEL[r.mode]+' · '+pool.length+'개 종목 후보';
+  document.getElementById('grResult').innerHTML='룰렛을 돌려 종목을 결정하세요.';
+  document.getElementById('grSpinBtn').style.display='';
+  document.getElementById('grRespInBtn').style.display='none';
+
+  // 정지 상태에서도 후보 종목들이 미리 보이도록 구성
+  const preview=[];
+  for(let i=0;i<Math.max(7,pool.length);i++) preview.push(pool[i%pool.length]);
+  const track=document.getElementById('grTrack');
+  track.innerHTML=preview.map((g,i)=>grItemHTML(g,i)).join('');
+  track.style.transition='none';
+  requestAnimationFrame(()=>{
+    const middle=Math.min(2,preview.length-1);
+    const off=grTargetOffset(middle);
+    track.style.transform='translateY('+off+'px)';
+  });
+  if(autoSpin)setTimeout(spinGameRoulette,220);
+}
+function closeGameRoulette(){
+  if(GR.spinning)return;
+  const modal=document.getElementById('gameRouletteModal');
+  modal.classList.remove('on');modal.setAttribute('aria-hidden','true');
+  clearInterval(GR.tickTimer);GR.tickTimer=null;
+  setTimeout(flushPendingRemote,0);
+}
+function spinGameRoulette(){
+  if(GR.spinning)return;
+  const r=S.rounds.find(x=>x.id===GR.roundId);
+  if(!r)return;
+  const pool=availableGames(r.id);
+  if(!pool.length){toast('남은 종목이 없습니다.');return;}
+
+  const target=pool[Math.random()*pool.length|0];
+  GR.pool=pool;GR.target=target;GR.spinning=true;GR.result=null;
+
+  const stage=document.getElementById('gameRouletteStage');
+  const track=document.getElementById('grTrack');
+  const built=buildGameRouletteTrack(pool,target);
+  stage.classList.add('spinning');
+  document.getElementById('grResult').innerHTML='종목 추첨 중…';
+  document.getElementById('grSpinBtn').style.display='none';
+  document.getElementById('grRespInBtn').style.display='none';
+
+  // 시작 위치
+  track.style.transition='none';
+  track.style.transform='translateY(0px)';
+  void track.offsetHeight;
+
+  const finalY=grTargetOffset(built.targetIndex);
+  const dur=4.4+Math.random()*.7;
+
+  // 룰렛 틱 사운드
+  clearInterval(GR.tickTimer);
+  let tickGap=55;
+  GR.tickTimer=setInterval(()=>blip(1120,0.018,'square',0.025),tickGap);
+
+  requestAnimationFrame(()=>{
+    track.style.transition='transform '+dur+'s cubic-bezier(.08,.76,.13,1)';
+    track.style.transform='translateY('+finalY+'px)';
+  });
+
+  setTimeout(()=>{
+    clearInterval(GR.tickTimer);GR.tickTimer=null;
+    dingdong();
+    GR.spinning=false;GR.result=target;
+    stage.classList.remove('spinning');
+
+    // 최종 결과에서만 상태/서버 저장. 중간 애니메이션은 저장하지 않습니다.
+    r.gameId=target.id;
+    r.winners=[];
+    autoLineup(r);
+    render();
+
+    document.getElementById('grResult').innerHTML='SELECTED GAME<strong>'+esc(target.name)+'</strong>';
+    document.getElementById('grRespInBtn').style.display='';
+    document.getElementById('grCloseBtn').textContent='확정하고 닫기';
+    setTimeout(flushPendingRemote,0);
+  },dur*1000+120);
+}
+
+document.getElementById('grSpinBtn').addEventListener('click',spinGameRoulette);
+document.getElementById('grRespInBtn').addEventListener('click',()=>{
+  if(GR.spinning)return;
+  document.getElementById('grCloseBtn').textContent='닫기';
+  spinGameRoulette();
+});
+document.getElementById('grCloseBtn').addEventListener('click',closeGameRoulette);
+document.getElementById('gameRouletteModal').addEventListener('click',e=>{
+  if(e.target.id==='gameRouletteModal')closeGameRoulette();
+});
+window.addEventListener('keydown',e=>{
+  if(e.key==='Escape'&&document.getElementById('gameRouletteModal').classList.contains('on'))closeGameRoulette();
+});
+
+/* ================= 기존 슬롯머신 로직 (호환용) ================= */
 const ITEM_H=()=>window.innerWidth<=520?50:62;
 let spinning={};
 function buildReel(r,target,pool){
@@ -824,7 +1149,7 @@ function render(skipSave){
   document.getElementById('setTitle').value=S.title;
   document.getElementById('setWin').value=S.winTarget;
   document.getElementById('setSfx').value=S.sfx?'1':'0';
-  renderBoard();renderRounds();renderGames();renderCrews();renderStoreInfo();primeReels();applyAccessMode();
+  renderBoard();renderRounds();renderGames();renderCrews();renderStoreInfo();applyAccessMode();
   if(!skipSave)save();
 }
 /* 아직 안 돌린 슬롯머신에 종목 이름을 미리 채워둔다 */
@@ -966,11 +1291,14 @@ function renderRounds(){
         +'</div>';
     }).join('');
 
-    const slot=g?'':'<div class="slotbox noprint" style="margin-bottom:13px">'
-      +'<div class="slotframe" id="sf-'+r.id+'"><div class="reel" id="rl-'+r.id+'"></div>'
-      +'<div class="slotfade"></div><div class="slotwin"></div></div>'
-      +'<div class="lever"><button class="gold" data-act="spin" data-id="'+r.id+'">🎰 종목 뽑기</button>'
-      +'<select data-act="setGame" data-id="'+r.id+'" style="width:auto;min-width:170px">'+gameOptions(r)+'</select></div></div>';
+    const slot=g?'':'<div class="game-draw-panel noprint">'
+      +'<div class="game-draw-head"><div>'
+      +'<div class="game-draw-title">이번 라운드 종목 추첨</div>'
+      +'<div class="game-draw-sub">방송형 세로 룰렛으로 종목을 결정합니다.</div></div></div>'
+      +'<div class="game-draw-actions">'
+      +'<button class="game-roulette-btn" data-act="spin" data-id="'+r.id+'">🎰 GAME ROULETTE</button>'
+      +'<select data-act="setGame" data-id="'+r.id+'" style="width:auto;min-width:190px">'+gameOptions(r)+'</select>'
+      +'<span class="hint">관리자는 직접 선택도 가능합니다.</span></div></div>';
 
     return '<div class="round'+(!done?' active':'')+'"><div class="rh">'
       +'<span class="rno'+(done?' done':'')+'">R'+(i+1)+'</span>'
@@ -1108,11 +1436,10 @@ document.addEventListener('click',e=>{
 
   if(act==='addRound'){ S.rounds.push(newRound(S.rounds.length?S.rounds[S.rounds.length-1].mode:'all')); }
   else if(act==='delRound'){ S.rounds=S.rounds.filter(x=>x.id!==id); }
-  else if(act==='spin'){ spinSlot(r); return; }
+  else if(act==='spin'){ openGameRoulette(r,true); return; }
   else if(act==='respin'){
-    // 다시 뽑기 준비 상태는 서버에 저장하지 않습니다. 최종 종목이 확정된 뒤 한 번만 저장합니다.
-    r.gameId=null; r.lineups={}; render(true);
-    setTimeout(()=>{const rr=S.rounds.find(x=>x.id===id); if(rr) spinSlot(rr);},120); return; }
+    // 기존 종목을 서버에서 지우지 않고 새 룰렛 결과가 나온 순간에만 교체합니다.
+    openGameRoulette(r,true); return; }
   else if(act==='rMatch'){ rouletteMatch(r); return; }
   else if(act==='rLineup'){ rouletteLineup(r,cid,false); return; }
   else if(act==='rLineupBurst'){ rouletteLineup(r,cid,true); return; }

@@ -810,6 +810,39 @@ const uid=()=>Math.random().toString(36).slice(2,9);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const LS='crew-tournament-v3', LS_OLD='crew-tournament-v2';
 const MODE_LABEL={all:'전 크루 동시전','1v1':'1대1 맞대결',semi:'4강전',custom:'커스텀 대진'};
+const REFERENCE_ROSTERS={"천타버스":[{"name":"나나문","file":"assets/avatars/천타버스/01_나나문.webp"},{"name":"문모모","file":"assets/avatars/천타버스/02_문모모.webp"},{"name":"로카","file":"assets/avatars/천타버스/03_로카.webp"},{"name":"천양","file":"assets/avatars/천타버스/04_천양.webp"},{"name":"카푸","file":"assets/avatars/천타버스/05_카푸.webp"},{"name":"마다옴","file":"assets/avatars/천타버스/06_마다옴.webp"},{"name":"폴리","file":"assets/avatars/천타버스/07_폴리.webp"},{"name":"밍밍","file":"assets/avatars/천타버스/08_밍밍.webp"},{"name":"임하밍","file":"assets/avatars/천타버스/09_임하밍.webp"},{"name":"라양","file":"assets/avatars/천타버스/10_라양.webp"},{"name":"김원로","file":"assets/avatars/천타버스/11_김원로.webp"},{"name":"달타","file":"assets/avatars/천타버스/12_달타.webp"},{"name":"체비","file":"assets/avatars/천타버스/13_체비.webp"}],"조적단":[{"name":"쥐돌이","file":"assets/avatars/조적단/01_쥐돌이.webp"},{"name":"뮤즈","file":"assets/avatars/조적단/02_뮤즈.webp"},{"name":"츄르","file":"assets/avatars/조적단/03_츄르.webp"},{"name":"엘그레","file":"assets/avatars/조적단/04_엘그레.webp"},{"name":"조디악","file":"assets/avatars/조적단/05_조디악.webp"},{"name":"손진석","file":"assets/avatars/조적단/06_손진석.webp"},{"name":"황정민","file":"assets/avatars/조적단/07_황정민.webp"},{"name":"리타","file":"assets/avatars/조적단/08_리타.webp"},{"name":"유시에","file":"assets/avatars/조적단/09_유시에.webp"}],"진드기":[{"name":"진호","file":"assets/avatars/진드기/01_진호.webp"},{"name":"히키","file":"assets/avatars/진드기/02_히키.webp"},{"name":"이루희","file":"assets/avatars/진드기/03_이루희.webp"},{"name":"찰리씨","file":"assets/avatars/진드기/04_찰리씨.webp"},{"name":"뽀끔","file":"assets/avatars/진드기/05_뽀끔.webp"},{"name":"설빈달","file":"assets/avatars/진드기/06_설빈달.webp"},{"name":"오늘님","file":"assets/avatars/진드기/07_오늘님.webp"},{"name":"찌미","file":"assets/avatars/진드기/08_찌미.webp"},{"name":"야구자","file":"assets/avatars/진드기/09_야구자.webp"},{"name":"호냥이","file":"assets/avatars/진드기/10_호냥이.webp"},{"name":"니즈","file":"assets/avatars/진드기/11_니즈.webp"}],"버인":[{"name":"조경훈","file":"assets/avatars/버인/01_조경훈.webp"},{"name":"혜솔","file":"assets/avatars/버인/02_혜솔.webp"},{"name":"송소미","file":"assets/avatars/버인/03_송소미.webp"},{"name":"비숑","file":"assets/avatars/버인/04_비숑.webp"},{"name":"꾸봄","file":"assets/avatars/버인/05_꾸봄.webp"},{"name":"표우","file":"assets/avatars/버인/06_표우.webp"},{"name":"김뿌피","file":"assets/avatars/버인/07_김뿌피.webp"},{"name":"윤이샘","file":"assets/avatars/버인/08_윤이샘.webp"},{"name":"제리츄","file":"assets/avatars/버인/09_제리츄.webp"},{"name":"주앵","file":"assets/avatars/버인/10_주앵.webp"},{"name":"비쥬","file":"assets/avatars/버인/11_비쥬.webp"},{"name":"나츈","file":"assets/avatars/버인/12_나츈.webp"}]};
+function referenceMembers(name){
+  return (REFERENCE_ROSTERS[name]||[]).map(m=>({id:uid(),name:m.name,photo:m.file}));
+}
+function applyReferenceRosterToCrew(c){
+  const ref=REFERENCE_ROSTERS[c.name];
+  if(!ref||!Array.isArray(c.members))return;
+
+  // Supabase/로컬에 예전 기본 이름(천타버스 1, 선수 1 등)만 남아 있다면
+  // 기존 member id를 최대한 유지하면서 실제 이름+프로필로 교체합니다.
+  const placeholder=c.members.length>0&&c.members.every((m,i)=>{
+    const n=String(m&&m.name||'').trim();
+    return !n||n===c.name+' '+(i+1)||/^선수\s*\d+$/.test(n);
+  });
+
+  if(placeholder){
+    const old=c.members.slice();
+    c.members=ref.map((r,i)=>({
+      id:(old[i]&&old[i].id)||uid(),
+      name:r.name,
+      photo:r.file
+    }));
+    return;
+  }
+
+  // 이미 관리자가 이름을 수정한 경우에는 이름이 정확히 일치하는 멤버에만
+  // 기본 프로필을 채우고, 관리자가 직접 올린 Supabase 사진은 덮어쓰지 않습니다.
+  const photos=Object.fromEntries(ref.map(r=>[r.name,r.file]));
+  c.members.forEach(m=>{
+    if(m&&photos[m.name]&&!m.photo)m.photo=photos[m.name];
+  });
+}
+
 
 /* ================= Supabase ================= */
 const SUPABASE_URL='https://maxoketndgrohcaqapep.supabase.co';
@@ -991,9 +1024,8 @@ async function logoutAdmin(){
 
 /* ================= state ================= */
 function defaultState(){
-  const mk=(name,color,n)=>({id:uid(),name,color,banner:null,
-    members:Array.from({length:n},(_,i)=>({id:uid(),name:name+' '+(i+1),photo:null}))});
-  const crews=[mk('조적단','#5b8cff',9),mk('천타버스','#66e0d1',13),mk('버인','#f5c451',12),mk('진드기','#4fc46b',11)];
+  const mk=(name,color)=>({id:uid(),name,color,banner:null,members:referenceMembers(name)});
+  const crews=[mk('조적단','#5b8cff'),mk('천타버스','#66e0d1'),mk('버인','#f5c451'),mk('진드기','#4fc46b')];
   const G=(name,perTeam,note)=>({id:uid(),name,perTeam,note:note||'',enabled:true});
   const games=[G('야추',0,''),G('윷놀이',0,''),G('테일즈러너',0,''),G('테트리스',0,''),G('폴가이즈',0,''),
     G('모두의마블',4,'4명 개인전'),G('스타 노래 맞추기',0,''),G('황새게임',4,'[무료] 점수 합치기'),
@@ -1020,7 +1052,10 @@ function migrate(d){
     if(!r.lineups) r.lineups={};
     if(!r.scores) r.scores={};
   });
-  (d.crews||[]).forEach(c=>{ if(c.banner===undefined) c.banner=null; });
+  (d.crews||[]).forEach(c=>{
+    if(c.banner===undefined)c.banner=null;
+    applyReferenceRosterToCrew(c);
+  });
   if(d.sfx===undefined) d.sfx=true;
   return d;
 }

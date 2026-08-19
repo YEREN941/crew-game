@@ -492,7 +492,7 @@
   }
 
   .pr-photo{
-    position:absolute;inset:0;width:100%;height:100%;object-fit:contain;object-position:center;
+    position:absolute;inset:0;width:100%;height:100%;object-fit:contain;object-position:center;display:none;
     opacity:0;transform:scale(1.15);filter:blur(10px) brightness(.65);
     z-index:2;
   }
@@ -1367,8 +1367,16 @@ function resetPRVisual(){
   stage.classList.remove('is-charging','is-flash','is-revealed');
   const photo=document.getElementById('prPhoto');
   const initial=document.getElementById('prInitial');
-  photo.removeAttribute('src');photo.alt='';
+
+  photo.onerror=null;
+  photo.onload=null;
+  photo.removeAttribute('src');
+  photo.alt='';
+  photo.style.display='none';
+
   initial.textContent='?';
+  initial.style.display='flex';
+
   document.getElementById('prPlayerName').textContent='???';
   document.getElementById('prSigil').style.display='';
 }
@@ -1442,12 +1450,35 @@ function revealNextPlayer(){
   prLater(()=>{
     const photo=document.getElementById('prPhoto');
     const initial=document.getElementById('prInitial');
-    if(m.photo){
-      photo.dataset.name=m.name||'';photo.onerror=()=>{const f=referencePhotoForName(m.name);if(f){photo.onerror=null;photo.src=f;}};photo.src=profileSrc(m.photo);photo.alt=m.name;
-      initial.removeAttribute('style');
+    const fallback=referencePhotoForName(m.name);
+    const src=m.photo||fallback;
+
+    if(src){
+      // 결과가 공개되는 순간 '?' 레이어를 숨기고 실제 프로필을 보여줍니다.
+      initial.style.display='none';
+      photo.style.display='block';
+      photo.dataset.name=m.name||'';
+      photo.alt=m.name||'';
+
+      let triedFallback=false;
+      photo.onerror=()=>{
+        if(!triedFallback&&fallback&&photo.src!==fallback){
+          triedFallback=true;
+          photo.src=fallback;
+          return;
+        }
+        // 사진 자체가 정말 로드되지 않을 때만 이름 첫 글자로 대체합니다.
+        photo.style.display='none';
+        initial.textContent=(m.name||'?').trim().charAt(0)||'?';
+        initial.style.display='flex';
+      };
+      photo.src=profileSrc(src);
     }else{
+      photo.style.display='none';
       initial.textContent=(m.name||'?').trim().charAt(0)||'?';
+      initial.style.display='flex';
     }
+
     document.getElementById('prPlayerName').textContent=m.name||'선수';
     stage.classList.remove('is-flash');
     stage.classList.add('is-revealed');

@@ -351,9 +351,42 @@ const SUPABASE_READY=/^https:\/\/.+\.supabase\.co\/?$/i.test(SUPABASE_URL)
   &&SUPABASE_PUBLISHABLE_KEY&&!SUPABASE_PUBLISHABLE_KEY.startsWith('YOUR_');
 
 let sb=null,currentUser=null,remoteChannel=null,remoteSaveTimer=null,applyingRemote=false;
+let remoteSaveInFlight=false,remoteSaveQueued=false,pendingRemoteState=null;
+let remoteSeq=0;
+const SYNC_CLIENT_ID=(()=>{
+  try{
+    let id=sessionStorage.getItem('crew-tournament-client-id');
+    if(!id){ id='c_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,9); sessionStorage.setItem('crew-tournament-client-id',id); }
+    return id;
+  }catch(e){ return 'c_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,9); }
+})();
 
 function canEdit(){return !SUPABASE_READY||!!currentUser;}
 function validState(d){return !!(d&&Array.isArray(d.crews)&&Array.isArray(d.games)&&Array.isArray(d.rounds));}
+function cloneState(d){return JSON.parse(JSON.stringify(d));}
+function cleanRemoteState(d){
+  const x=cloneState(d);
+  if(x&&x.__sync)delete x.__sync;
+  return x;
+}
+function interactionBusy(){
+  const modal=document.getElementById('modal');
+  return !!(W&&W.spinning)||!!(modal&&modal.classList.contains('on'))||Object.values(spinning||{}).some(Boolean);
+}
+function applyRemoteState(d,label){
+  if(!validState(d))return;
+  applyingRemote=true;
+  S=migrate(cleanRemoteState(d));
+  try{localStorage.setItem(LS,JSON.stringify(S));}catch(e){}
+  render(true);
+  applyingRemote=false;
+  setSyncState(label||'실시간 동기화','ok');
+}
+function flushPendingRemote(){
+  if(!pendingRemoteState||interactionBusy()||remoteSaveInFlight||remoteSaveTimer)return;
+  const d=pendingRemoteState; pendingRemoteState=null;
+  applyRemoteState(d,'실시간 동기화');
+}
 function setSyncState(text,kind){
   const el=document.getElementById('syncState'); if(!el)return;
   el.textContent=text; el.className='syncpill'+(kind?' '+kind:'');
@@ -388,31 +421,54 @@ async function loadRemoteState(){
   const {data,error}=await sb.from(SB_TABLE).select('data,updated_at').eq('id',SB_STATE_ID).maybeSingle();
   if(error){console.error(error);setSyncState('DB 읽기 실패','err');toast('Supabase 데이터 읽기 실패: '+error.message);return false;}
   if(data&&validState(data.data)){
-    applyingRemote=true; S=migrate(data.data);
-    try{localStorage.setItem(LS,JSON.stringify(S));}catch(e){}
-    applyingRemote=false; setSyncState('서버 동기화','ok'); return true;
+    applyRemoteState(data.data,'서버 동기화');
+    return true;
   }
   setSyncState('서버 데이터 없음','busy'); return false;
 }
 async function saveRemote(){
+  remoteSaveTimer=null;
   if(!sb||!currentUser||applyingRemote)return;
-  clearTimeout(remoteSaveTimer); setSyncState('저장 중','busy');
-  const {error}=await sb.from(SB_TABLE).upsert({id:SB_STATE_ID,data:S,updated_at:new Date().toISOString()},{onConflict:'id'});
-  if(error){console.error(error);setSyncState('저장 실패','err');toast('Supabase 저장 실패: '+error.message);return;}
-  setSyncState('저장 완료','ok');
+  // 저장 요청은 한 번에 하나만 보냅니다. 이전 요청이 끝나기 전에 변경되면 최신 상태를 한 번 더 저장합니다.
+  if(remoteSaveInFlight){remoteSaveQueued=true;return;}
+  remoteSaveInFlight=true; remoteSaveQueued=false; setSyncState('저장 중','busy');
+  const snapshot=cloneState(S);
+  snapshot.__sync={clientId:SYNC_CLIENT_ID,seq:++remoteSeq,savedAt:Date.now()};
+  try{
+    const {error}=await sb.from(SB_TABLE).upsert({id:SB_STATE_ID,data:snapshot,updated_at:new Date().toISOString()},{onConflict:'id'});
+    if(error)throw error;
+    setSyncState('저장 완료','ok');
+  }catch(error){
+    console.error(error);setSyncState('저장 실패','err');toast('Supabase 저장 실패: '+error.message);
+  }finally{
+    remoteSaveInFlight=false;
+    if(remoteSaveQueued){remoteSaveQueued=false;setTimeout(saveRemote,0);}
+    else flushPendingRemote();
+  }
 }
 function queueRemoteSave(){
   if(!sb||!currentUser||applyingRemote)return;
-  clearTimeout(remoteSaveTimer); remoteSaveTimer=setTimeout(saveRemote,300);
+  clearTimeout(remoteSaveTimer);
+  remoteSaveTimer=setTimeout(()=>{remoteSaveTimer=null;saveRemote();},350);
 }
 function subscribeRemote(){
   if(!sb||remoteChannel)return;
   remoteChannel=sb.channel('tournament-state-main')
     .on('postgres_changes',{event:'*',schema:'public',table:SB_TABLE,filter:'id=eq.'+SB_STATE_ID},payload=>{
       const d=payload&&payload.new&&payload.new.data; if(!validState(d))return;
-      applyingRemote=true; S=migrate(d);
-      try{localStorage.setItem(LS,JSON.stringify(S));}catch(e){}
-      render(true); applyingRemote=false; setSyncState('실시간 동기화','ok');
+      const meta=d.__sync||{};
+      // 내가 저장한 Realtime echo는 다시 화면에 적용하지 않습니다.
+      // 기존 방식은 이 echo가 render()를 실행하면서 슬롯/룰렛 DOM과 객체 참조를 갈아엎어
+      // 애니메이션이 멈추거나 직전 상태로 돌아간 것처럼 보이는 원인이었습니다.
+      if(meta.clientId===SYNC_CLIENT_ID){
+        setSyncState('저장 완료','ok');
+        return;
+      }
+      // 다른 기기의 변경도 룰렛/슬롯 동작 중에는 즉시 렌더하지 않고 끝난 뒤 반영합니다.
+      if(interactionBusy()||remoteSaveInFlight||remoteSaveTimer){
+        pendingRemoteState=d; setSyncState('원격 변경 대기','busy'); return;
+      }
+      applyRemoteState(d,'실시간 동기화');
     })
     .subscribe(status=>{
       if(status==='SUBSCRIBED')setSyncState('실시간 연결','ok');
@@ -455,6 +511,7 @@ function newRound(mode){
 }
 function migrate(d){
   if(!d) return d;
+  if(d.__sync)delete d.__sync;
   (d.rounds||[]).forEach(r=>{
     if(!r.mode) r.mode='all';
     if(!Array.isArray(r.winners)) r.winners = r.winner?[r.winner]:[];
@@ -623,7 +680,7 @@ function openRoulette(opt){
   document.getElementById('modal').classList.add('on');
   renderPicked(); drawWheel();
 }
-function closeRoulette(){ document.getElementById('modal').classList.remove('on'); W.spinning=false; }
+function closeRoulette(){ document.getElementById('modal').classList.remove('on'); W.spinning=false; setTimeout(flushPendingRemote,0); }
 document.getElementById('mSpin').onclick=()=>spinOnce(3000+Math.random()*600);
 document.getElementById('mBurst').onclick=()=>{
   const step=()=>{ if(W.picked.length>=W.count) return; spinOnce(1150,()=>setTimeout(step,320)); };
@@ -699,7 +756,7 @@ function spinSlot(r){
   setTimeout(()=>{
     spinning[r.id]=false; frame.classList.add('done'); dingdong();
     r.gameId=target.id; autoLineup(r);
-    setTimeout(render,700);
+    setTimeout(()=>{render();setTimeout(flushPendingRemote,0);},700);
   },dur*1000+60);
 }
 
@@ -960,7 +1017,9 @@ document.addEventListener('click',e=>{
   if(act==='addRound'){ S.rounds.push(newRound(S.rounds.length?S.rounds[S.rounds.length-1].mode:'all')); }
   else if(act==='delRound'){ S.rounds=S.rounds.filter(x=>x.id!==id); }
   else if(act==='spin'){ spinSlot(r); return; }
-  else if(act==='respin'){ r.gameId=null; r.lineups={}; render();
+  else if(act==='respin'){
+    // 다시 뽑기 준비 상태는 서버에 저장하지 않습니다. 최종 종목이 확정된 뒤 한 번만 저장합니다.
+    r.gameId=null; r.lineups={}; render(true);
     setTimeout(()=>{const rr=S.rounds.find(x=>x.id===id); if(rr) spinSlot(rr);},120); return; }
   else if(act==='rMatch'){ rouletteMatch(r); return; }
   else if(act==='rLineup'){ rouletteLineup(r,cid,false); return; }

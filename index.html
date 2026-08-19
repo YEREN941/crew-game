@@ -107,6 +107,13 @@
   .slots select{width:auto;min-width:130px}
   .vsx{font-weight:900;color:var(--muted);padding:0 2px}
   .teamsel{display:flex;gap:6px;align-items:center;background:#0d1219;border:1px solid var(--line);border-radius:10px;padding:6px}
+  .custom-match{display:flex;flex-direction:column;gap:8px;width:100%}
+  .custom-side{display:flex;align-items:center;gap:7px;flex-wrap:wrap;background:#0d1219;border:1px solid var(--line);border-radius:11px;padding:8px}
+  .custom-side-label{width:30px;height:30px;border-radius:8px;background:#202a3a;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;color:#b9c5d8;flex:none}
+  .custom-side .teamsel{border:none;background:transparent;padding:0;flex:1}
+  .custom-side .teamsel select{min-width:125px}
+  .custom-side-actions{display:flex;gap:5px;align-items:center;flex-wrap:wrap}
+  .custom-tools{display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin-top:2px}
   .orderchips{display:flex;gap:7px;flex-wrap:wrap}
   .ochip{display:flex;align-items:center;gap:6px;background:#0d1219;border:1px solid var(--line);border-radius:99px;padding:4px 11px;font-weight:700;font-size:13.5px}
   .ochip b{color:var(--muted);font-size:12px}
@@ -350,7 +357,7 @@
 const uid=()=>Math.random().toString(36).slice(2,9);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const LS='crew-tournament-v3', LS_OLD='crew-tournament-v2';
-const MODE_LABEL={all:'전 크루 동시전','1v1':'1대1 맞대결','2v2':'2대2 팀전'};
+const MODE_LABEL={all:'전 크루 동시전','1v1':'1대1 맞대결','2v2':'2대2 팀전',custom:'커스텀 대진'};
 
 /* ================= Supabase ================= */
 const SUPABASE_URL='https://maxoketndgrohcaqapep.supabase.co';
@@ -572,6 +579,7 @@ function defaultTeams(mode){
   const ids=S.crews.map(c=>c.id);
   if(mode==='1v1') return [[ids[0]||null],[ids[1]||null]];
   if(mode==='2v2') return [[ids[0]||null,ids[1]||null],[ids[2]||null,ids[3]||null]];
+  if(mode==='custom') return [[ids[0]||null],[ids[1]||null]];
   return null;
 }
 function unitsOf(r){
@@ -580,8 +588,11 @@ function unitsOf(r){
     const rest=S.crews.map(c=>c.id).filter(id=>!ord.includes(id));
     return ord.concat(rest).map(id=>[id]);
   }
-  const t=r.teams||defaultTeams(r.mode);
-  return t.map(g=>g.filter(id=>crew(id)));
+  const t=r.teams||defaultTeams(r.mode)||[];
+  return t.map(g=>(g||[]).filter(id=>crew(id))).filter(g=>g.length);
+}
+function customSlotCount(r){
+  return (r.teams||[]).reduce((n,g)=>n+(g||[]).length,0);
 }
 const participantsOf=r=>unitsOf(r).flat();
 
@@ -719,9 +730,20 @@ function rouletteMatch(r){
   }else if(r.mode==='1v1'){
     openRoulette({title:'대진 룰렛',sub:'맞붙을 두 크루를 뽑습니다',items,count:2,
       onDone:v=>{ r.teams=[[v[0]],[v[1]]]; autoLineup(r); render(); toast(crewName(v[0])+' VS '+crewName(v[1])); }});
-  }else{
+  }else if(r.mode==='2v2'){
     openRoulette({title:'팀 룰렛',sub:'뽑힌 순서대로 1·2번이 A팀, 3·4번이 B팀',items,count:Math.min(4,items.length),
       onDone:v=>{ r.teams=[[v[0],v[1]],[v[2],v[3]]].map(t=>t.filter(Boolean)); autoLineup(r); render(); toast('팀이 정해졌습니다.'); }});
+  }else{
+    if(!r.teams) r.teams=defaultTeams('custom');
+    const slots=customSlotCount(r);
+    if(slots<2){ toast('커스텀 대진에는 최소 2개의 크루 자리가 필요합니다.'); return; }
+    if(slots>items.length){ toast('크루 수보다 대진 자리가 많습니다. 빈 자리를 줄여주세요.'); return; }
+    openRoulette({title:'커스텀 대진 룰렛',sub:'현재 만든 진영/자리 구성을 유지한 채 크루만 랜덤 배정합니다',items,count:slots,
+      onDone:v=>{
+        let p=0;
+        r.teams=r.teams.map(grp=>grp.map(()=>v[p++]||null));
+        r.winners=[]; autoLineup(r); render(); toast('커스텀 대진이 랜덤 배정되었습니다.');
+      }});
   }
 }
 function rouletteLineup(r,cid,burst){
@@ -884,6 +906,20 @@ function setupHTML(r){
       ? '<div class="orderchips">'+ord.map((id,i)=>'<span class="ochip"><b>'+(i+1)+'</b>'
           +'<span class="dot" style="background:'+crewColor(id)+'"></span>'+esc(crewName(id))+'</span>').join('')+'</div>'
       : '<span class="hint">모든 크루가 함께 겨룹니다. 순번이 필요하면 룰렛을 돌려주세요.</span>';
+  }else if(r.mode==='custom'){
+    const t=r.teams||defaultTeams('custom');
+    body='<div class="custom-match">'+t.map((grp,ti)=>
+      '<div class="custom-side">'
+      +'<span class="custom-side-label">'+String.fromCharCode(65+ti)+'</span>'
+      +'<span class="teamsel">'+grp.map((cid,pi)=>crewSelect(r,ti,pi,cid)).join('')+'</span>'
+      +'<span class="custom-side-actions">'
+      +'<button class="sm" data-act="customAddCrew" data-id="'+r.id+'" data-ti="'+ti+'">+ 크루</button>'
+      +(grp.length>1?'<button class="ghost sm" data-act="customRemoveCrew" data-id="'+r.id+'" data-ti="'+ti+'">- 크루</button>':'')
+      +(t.length>2?'<button class="danger sm" data-act="customRemoveSide" data-id="'+r.id+'" data-ti="'+ti+'">진영 삭제</button>':'')
+      +'</span></div>').join('')
+      +'<div class="custom-tools"><button class="sm primary" data-act="customAddSide" data-id="'+r.id+'">+ 진영 추가</button>'
+      +'<span class="hint">각 진영의 크루 수를 자유롭게 구성할 수 있습니다. 같은 크루는 한 자리만 선택됩니다.</span></div>'
+      +'</div>';
   }else{
     const t=r.teams||defaultTeams(r.mode);
     body='<div class="slots">'+t.map((grp,ti)=>
@@ -940,7 +976,7 @@ function renderRounds(){
       +'<span class="rno'+(done?' done':'')+'">R'+(i+1)+'</span>'
       +(g?'<span class="gtitle">'+esc(g.name)+'</span>':'<span class="hint">종목 미정</span>')
       +(g&&g.note?'<span class="gnote">'+esc(g.note)+'</span>':'')
-      +'<span class="modetag">'+MODE_LABEL[r.mode]+'</span>'
+      +'<span class="modetag">'+(MODE_LABEL[r.mode]||'커스텀 대진')+'</span>'
       +(k?'<span class="hint">팀당 '+k+'명</span>':'')
       +'<span class="spacer"></span>'
       +(g?'<button class="ghost sm noprint" data-act="respin" data-id="'+r.id+'">종목 다시</button>'
@@ -1085,6 +1121,39 @@ document.addEventListener('click',e=>{
   else if(act==='auto'){ if(!r.gameId){toast('먼저 종목을 뽑아주세요.');return;} autoLineup(r); }
   else if(act==='autoAllRounds'){ S.rounds.forEach(x=>{x.lineups={};}); S.rounds.forEach(autoLineup); }
   else if(act==='clearOrder'){ r.order=null; }
+  else if(act==='customAddCrew'){
+    if(r.mode!=='custom')return;
+    if(!r.teams)r.teams=defaultTeams('custom');
+    const total=customSlotCount(r);
+    if(total>=S.crews.length){toast('등록된 크루 수보다 자리를 더 만들 수 없습니다.');return;}
+    const ti=+t.dataset.ti;
+    if(!r.teams[ti])return;
+    r.teams[ti].push(null); r.winners=[]; autoLineup(r);
+  }
+  else if(act==='customRemoveCrew'){
+    if(r.mode!=='custom'||!r.teams)return;
+    const ti=+t.dataset.ti;
+    if(!r.teams[ti]||r.teams[ti].length<=1){toast('진영에는 최소 1개의 크루 자리가 필요합니다.');return;}
+    const removed=r.teams[ti].pop();
+    if(removed)delete r.lineups[removed];
+    r.winners=[]; autoLineup(r);
+  }
+  else if(act==='customAddSide'){
+    if(r.mode!=='custom')return;
+    if(!r.teams)r.teams=defaultTeams('custom');
+    const total=customSlotCount(r);
+    if(total>=S.crews.length){toast('등록된 크루 수보다 자리를 더 만들 수 없습니다.');return;}
+    if(r.teams.length>=6){toast('진영은 최대 6개까지 만들 수 있습니다.');return;}
+    r.teams.push([null]); r.winners=[]; autoLineup(r);
+  }
+  else if(act==='customRemoveSide'){
+    if(r.mode!=='custom'||!r.teams)return;
+    if(r.teams.length<=2){toast('대진에는 최소 2개 진영이 필요합니다.');return;}
+    const ti=+t.dataset.ti;
+    const removed=r.teams.splice(ti,1)[0]||[];
+    removed.filter(Boolean).forEach(cid=>delete r.lineups[cid]);
+    r.winners=[]; autoLineup(r);
+  }
   else if(act==='win'){
     const u=unitsOf(r)[Number(t.dataset.ui)]||[];
     const same=u.length===r.winners.length&&u.every(x=>r.winners.includes(x));
@@ -1139,6 +1208,8 @@ document.addEventListener('change',e=>{
   else if(act==='setTeamCrew'){
     const ti=+t.dataset.ti,pi=+t.dataset.pi;
     if(!r.teams) r.teams=defaultTeams(r.mode);
+    if(!r.teams[ti])r.teams[ti]=[];
+    while(r.teams[ti].length<=pi)r.teams[ti].push(null);
     r.teams[ti][pi]=t.value||null;
     // 같은 크루가 두 자리에 들어가면 이전 자리를 비움
     if(t.value) r.teams.forEach((grp,gi)=>grp.forEach((v,vi)=>{

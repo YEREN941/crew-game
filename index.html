@@ -184,6 +184,16 @@
   .readonly-note{display:none;margin:0 0 14px;padding:10px 12px;border:1px solid #2d405f;border-radius:11px;background:#111a29;color:#9eb4d6;font-size:12.5px}
   body.readonly .readonly-note{display:block}
 
+  /* 관리자가 직접 등록하는 크루 배너 */
+  .crewcard .crew-banner-wrap{height:58px;display:flex;align-items:center;justify-content:center;margin:1px 0 9px;padding:3px 8px;border-radius:10px;background:rgba(8,12,18,.32);overflow:hidden}
+  .crewcard .crew-banner-img{display:block;max-width:100%;max-height:50px;width:auto;height:auto;object-fit:contain}
+  .crew-mini-banner{display:inline-block;max-width:90px;max-height:24px;width:auto;height:auto;object-fit:contain;vertical-align:middle;margin-right:5px;flex:none}
+  .crew-banner-admin{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 12px;padding:10px;border:1px dashed #354158;border-radius:11px;background:#101620}
+  .crew-banner-admin .preview{width:150px;height:48px;display:flex;align-items:center;justify-content:center;border:1px solid var(--line);border-radius:9px;background:#0b1018;overflow:hidden;flex:none}
+  .crew-banner-admin .preview img{display:block;max-width:142px;max-height:42px;width:auto;height:auto;object-fit:contain}
+  .crew-banner-admin .preview .none{font-size:12px;color:var(--muted)}
+  .crew-banner-admin .banner-actions{display:flex;gap:7px;flex-wrap:wrap;align-items:center}
+
   @media(max-width:520px){
     .brand h1{font-size:17px}
     .slotframe{height:150px}.reelitem{height:50px;font-size:16px}.slotwin{top:50px;height:50px}
@@ -246,6 +256,7 @@
       <button class="ghost sm noprint" data-act="importBtn">복원</button>
       <input type="file" id="importFile" accept="application/json" hidden>
       <input type="file" id="photoFile" accept="image/*" hidden>
+      <input type="file" id="bannerFile" accept="image/*" hidden>
     </div>
     <nav class="tabs" id="tabs">
       <button data-tab="board" class="on">전광판</button>
@@ -304,7 +315,7 @@
   <section id="sec-crews">
     <div class="card">
       <h2>크루 · 선수</h2>
-      <p class="sub">관리자 로그인 후 동그란 아바타를 클릭하면 프로필 사진을 올릴 수 있습니다. 사진은 Supabase Storage에 저장됩니다.</p>
+      <p class="sub">관리자 로그인 후 크루별 배너와 선수 프로필 사진을 직접 등록할 수 있습니다. 이미지는 Supabase Storage에 저장됩니다.</p>
       <div id="crewEdit"></div>
       <div class="row noprint"><button class="primary" data-act="addCrew">+ 크루 추가</button></div>
     </div>
@@ -493,7 +504,7 @@ async function logoutAdmin(){
 
 /* ================= state ================= */
 function defaultState(){
-  const mk=(name,color,n)=>({id:uid(),name,color,
+  const mk=(name,color,n)=>({id:uid(),name,color,banner:null,
     members:Array.from({length:n},(_,i)=>({id:uid(),name:name+' '+(i+1),photo:null}))});
   const crews=[mk('조적단','#f5c451',9),mk('천타버스','#5b8cff',13),mk('버인','#3ddc97',12),mk('진드기','#ff7ab6',11)];
   const G=(name,perTeam,note)=>({id:uid(),name,perTeam,note:note||'',enabled:true});
@@ -521,6 +532,7 @@ function migrate(d){
     if(!r.lineups) r.lineups={};
     if(!r.scores) r.scores={};
   });
+  (d.crews||[]).forEach(c=>{ if(c.banner===undefined) c.banner=null; });
   if(d.sfx===undefined) d.sfx=true;
   return d;
 }
@@ -544,6 +556,10 @@ const crew=id=>S.crews.find(c=>c.id===id);
 const game=id=>S.games.find(g=>g.id===id);
 const crewName=id=>(crew(id)||{}).name||'?';
 const crewColor=id=>(crew(id)||{}).color||'#5a6473';
+function crewBannerHTML(c,cls){
+  if(!c||!c.banner)return '';
+  return '<img class="'+(cls||'crew-mini-banner')+'" src="'+esc(c.banner)+'" alt="'+esc(c.name||'크루')+' 배너">';
+}
 const winsOf=cid=>S.rounds.filter(r=>(r.winners||[]).includes(cid)).length;
 function champion(){
   const c=S.crews.filter(x=>winsOf(x.id)>=S.winTarget);
@@ -821,6 +837,7 @@ function renderBoard(){
     return '<div class="crewcard'+(ch&&ch.id===c.id?' champ':'')+'">'
       +'<div class="bar" style="background:'+c.color+'"></div>'
       +(ch&&ch.id===c.id?'<div class="champtag">WINNER</div>':'')
+      +(c.banner?'<div class="crew-banner-wrap">'+crewBannerHTML(c,'crew-banner-img')+'</div>':'')
       +'<div class="nm"><span class="dot" style="background:'+c.color+'"></span>'+esc(c.name)+'</div>'
       +'<div class="cnt">'+c.members.length+'명</div>'
       +'<div class="wins">'+w+'<small> / '+S.winTarget+'승</small></div>'
@@ -888,7 +905,11 @@ function renderRounds(){
     const units=unitsOf(r);
     const arena=units.map((u,ui)=>{
       const won=u.length&&u.every(id=>r.winners.includes(id))&&r.winners.length===u.length;
-      const head=u.map(id=>'<span class="dot" style="background:'+crewColor(id)+'"></span>'+esc(crewName(id))).join('<span class="vsx">+</span>');
+      const head=u.map(id=>{
+        const c=crew(id);
+        return (c&&c.banner?crewBannerHTML(c,'crew-mini-banner'):'')
+          +'<span class="dot" style="background:'+crewColor(id)+'"></span>'+esc(crewName(id));
+      }).join('<span class="vsx">+</span>');
       const inner=u.map(cid=>
         '<div class="subcrew">'
         +(u.length>1?'<div class="crewrow"><span class="dot" style="background:'+crewColor(cid)+'"></span>'+esc(crewName(cid))+'</div>':'')
@@ -959,6 +980,9 @@ function renderCrews(){
       '<div class="mcard"><div data-act="photo" data-id="'+c.id+'" data-mid="'+m.id+'" title="사진 올리기">'+avatar(m)+'</div>'
       +'<input data-act="mName" data-id="'+c.id+'" data-mid="'+m.id+'" value="'+esc(m.name)+'">'
       +'<button class="x noprint" data-act="delMember" data-id="'+c.id+'" data-mid="'+m.id+'" title="삭제">×</button></div>').join('');
+    const bannerPreview=c.banner
+      ?'<img src="'+esc(c.banner)+'" alt="'+esc(c.name)+' 배너">'
+      :'<span class="none">등록된 배너 없음</span>';
     return '<div class="crewbox"><div class="crewhd">'
       +'<input type="color" data-act="cColor" data-id="'+c.id+'" value="'+c.color+'">'
       +'<input class="nm" data-act="cName" data-id="'+c.id+'" value="'+esc(c.name)+'">'
@@ -966,13 +990,21 @@ function renderCrews(){
       +'<button class="sm noprint" data-act="addMember" data-id="'+c.id+'">+ 선수</button>'
       +'<button class="sm noprint" data-act="bulk" data-id="'+c.id+'">명단 붙여넣기</button>'
       +'<button class="danger sm noprint" data-act="delCrew" data-id="'+c.id+'">크루 삭제</button></div>'
+      +'<div class="crew-banner-admin noprint">'
+      +'<div class="preview">'+bannerPreview+'</div>'
+      +'<div class="banner-actions">'
+      +'<button class="sm primary" data-act="bannerUpload" data-id="'+c.id+'">배너 등록 / 변경</button>'
+      +(c.banner?'<button class="sm danger" data-act="bannerRemove" data-id="'+c.id+'">배너 제거</button>':'')
+      +'<span class="hint">원본 비율 유지 · PNG 투명 배경 유지</span>'
+      +'</div></div>'
       +(c.members.length?'<div class="mgrid">'+cards+'</div>':'<div class="empty">선수를 추가해주세요.</div>')+'</div>';
   }).join('');
 }
 function renderStoreInfo(){
   let kb=0; try{ kb=Math.round((localStorage.getItem(LS)||'').length/1024); }catch(e){}
   const ph=S.crews.reduce((n,c)=>n+c.members.filter(m=>m.photo).length,0);
-  document.getElementById('storeInfo').textContent=(SUPABASE_READY?'Supabase 연동 · 로컬 비상 백업 ':'로컬 저장 ')+kb+'KB · 프로필 사진 '+ph+'장';
+  const bn=S.crews.filter(c=>c.banner).length;
+  document.getElementById('storeInfo').textContent=(SUPABASE_READY?'Supabase 연동 · 로컬 비상 백업 ':'로컬 저장 ')+kb+'KB · 프로필 사진 '+ph+'장 · 크루 배너 '+bn+'개';
 }
 
 /* ================= 사진 ================= */
@@ -994,6 +1026,30 @@ async function uploadProfilePhoto(blob,cid,mid){
   if(error)throw error;
   const {data}=sb.storage.from(SB_BUCKET).getPublicUrl(path);
   if(!data||!data.publicUrl)throw new Error('사진 URL 생성에 실패했습니다.');
+  return data.publicUrl+'?v='+Date.now();
+}
+
+let bannerTarget=null;
+function processBanner(file,cb){
+  const img=new Image(),url=URL.createObjectURL(file);
+  img.onload=()=>{
+    const maxW=900,maxH=260,scale=Math.min(1,maxW/img.width,maxH/img.height);
+    const w=Math.max(1,Math.round(img.width*scale)),h=Math.max(1,Math.round(img.height*scale));
+    const c=document.createElement('canvas'); c.width=w; c.height=h;
+    const x=c.getContext('2d'); x.clearRect(0,0,w,h); x.drawImage(img,0,0,w,h);
+    URL.revokeObjectURL(url);
+    c.toBlob(blob=>{if(blob)cb(blob);else toast('배너 변환에 실패했습니다.');},'image/webp',0.92);
+  };
+  img.onerror=()=>{URL.revokeObjectURL(url);toast('배너 이미지를 읽지 못했습니다.');};
+  img.src=url;
+}
+async function uploadCrewBanner(blob,cid){
+  if(!sb||!currentUser)throw new Error('관리자 로그인이 필요합니다.');
+  const path='banners/'+cid+'/banner.webp';
+  const {error}=await sb.storage.from(SB_BUCKET).upload(path,blob,{contentType:'image/webp',upsert:true,cacheControl:'3600'});
+  if(error)throw error;
+  const {data}=sb.storage.from(SB_BUCKET).getPublicUrl(path);
+  if(!data||!data.publicUrl)throw new Error('배너 URL 생성에 실패했습니다.');
   return data.publicUrl+'?v='+Date.now();
 }
 
@@ -1043,7 +1099,7 @@ document.addEventListener('click',e=>{
   else if(act==='addGame'){ S.games.push({id:uid(),name:'새 종목',perTeam:0,note:'',enabled:true}); }
   else if(act==='delGame'){ S.games=S.games.filter(g=>g.id!==id);
     S.rounds.forEach(x=>{if(x.gameId===id){x.gameId=null;x.lineups={};}}); }
-  else if(act==='addCrew'){ S.crews.push({id:uid(),name:'새 크루',color:PALETTE[S.crews.length%PALETTE.length],members:[]}); }
+  else if(act==='addCrew'){ S.crews.push({id:uid(),name:'새 크루',color:PALETTE[S.crews.length%PALETTE.length],banner:null,members:[]}); }
   else if(act==='delCrew'){ if(!confirm('이 크루를 삭제할까요?')) return;
     S.crews=S.crews.filter(c=>c.id!==id);
     S.rounds.forEach(x=>{ x.winners=x.winners.filter(w=>w!==id); delete x.lineups[id];
@@ -1057,6 +1113,8 @@ document.addEventListener('click',e=>{
     if(!txt) return;
     txt.split('\n').map(s=>s.trim()).filter(Boolean).forEach(n=>c.members.push({id:uid(),name:n,photo:null})); }
   else if(act==='photo'){ photoTarget={cid:id,mid}; document.getElementById('photoFile').click(); return; }
+  else if(act==='bannerUpload'){ bannerTarget=id; document.getElementById('bannerFile').click(); return; }
+  else if(act==='bannerRemove'){ const c=crew(id); if(c){ c.banner=null; toast('배너를 제거했습니다.'); } }
   else if(act==='print'){ window.print(); return; }
   else if(act==='export'){
     const blob=new Blob([JSON.stringify(S)],{type:'application/json'});
@@ -1146,6 +1204,24 @@ document.getElementById('photoFile').addEventListener('change',e=>{
     }catch(err){console.error(err);setSyncState('사진 업로드 실패','err');toast('사진 업로드 실패: '+err.message);}
   });
 });
+document.getElementById('bannerFile').addEventListener('change',e=>{
+  const f=e.target.files[0]; e.target.value=''; if(!f||!bannerTarget)return;
+  const target=bannerTarget; bannerTarget=null;
+  processBanner(f,async blob=>{
+    const c=crew(target); if(!c)return;
+    try{
+      if(SUPABASE_READY){
+        setSyncState('배너 업로드 중','busy');
+        c.banner=await uploadCrewBanner(blob,target);
+      }else{
+        const rd=new FileReader();
+        c.banner=await new Promise((resolve,reject)=>{rd.onload=()=>resolve(rd.result);rd.onerror=reject;rd.readAsDataURL(blob);});
+      }
+      render(); toast('크루 배너를 등록했습니다.');
+    }catch(err){console.error(err);setSyncState('배너 업로드 실패','err');toast('배너 업로드 실패: '+err.message);}
+  });
+});
+
 document.getElementById('importFile').addEventListener('change',e=>{
   const f=e.target.files[0]; e.target.value=''; if(!f) return;
   const rd=new FileReader();

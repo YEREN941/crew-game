@@ -823,18 +823,38 @@ function referenceMembers(name){
 function applyReferenceRosterToCrew(c){
   const ref=REFERENCE_ROSTERS[c.name];
   if(!ref||!Array.isArray(c.members))return;
+
   const isPlaceholderList=c.members.length>0&&c.members.every((m,i)=>{
     const n=String(m&&m.name||'').trim();
     return !n||n===c.name+' '+(i+1)||/^선수\s*\d+$/.test(n);
   });
+
   if(isPlaceholderList){
     const old=c.members.slice();
-    c.members=ref.map((r,i)=>({id:(old[i]&&old[i].id)||uid(),name:r.name,photo:r.file}));
+    c.members=ref.map((r,i)=>({
+      id:(old[i]&&old[i].id)||uid(),
+      name:r.name,
+      photo:r.file
+    }));
     return;
   }
+
   const photos=Object.fromEntries(ref.map(r=>[r.name,r.file]));
+
   c.members.forEach(m=>{
-    if(m&&photos[m.name]&&!m.photo)m.photo=photos[m.name];
+    if(!m||!photos[m.name])return;
+
+    const p=String(m.photo||'').trim();
+
+    // 관리자 업로드 사진(절대 URL/data/blob)은 유지
+    const isExternal=/^(https?:\/\/|data:|blob:)/i.test(p);
+
+    // 예전 버전에 저장된 상대경로는 현재 HTML 내장 이미지로 교체
+    const isLegacy=!p || /^\.?\/?assets\/avatars\//i.test(p);
+
+    if(isLegacy || !isExternal){
+      m.photo=photos[m.name];
+    }
   });
 }
 
@@ -1065,6 +1085,7 @@ function load(){
   return null;
 }
 let S=load()||defaultState();
+(S.crews||[]).forEach(applyReferenceRosterToCrew);
 let lastChamp=null;
 function save(){ try{ localStorage.setItem(LS,JSON.stringify(S)); }
   catch(e){ toast('로컬 백업 저장 공간이 가득 찼습니다.'); }
@@ -1770,7 +1791,26 @@ function renderBoard(){
 
 function avatar(m){
   const ini=esc((m.name||'?').trim().charAt(0)||'?');
-  return m.photo?'<img class="av" src="'+m.photo+'" alt="">':'<div class="av">'+ini+'</div>';
+  let src=String(m.photo||'');
+
+  // 아직도 예전 상대경로가 남아있으면 즉시 내장 프로필로 복구
+  if(/^\.?\/?assets\/avatars\//i.test(src)){
+    outer:
+    for(const c of S.crews){
+      const ref=REFERENCE_ROSTERS[c.name];
+      if(!ref)continue;
+      const hit=ref.find(x=>x.name===m.name);
+      if(hit){
+        src=hit.file;
+        m.photo=hit.file;
+        break outer;
+      }
+    }
+  }
+
+  return src
+    ?'<img class="av" src="'+src+'" alt="'+esc(m.name||'')+'">'
+    :'<div class="av">'+ini+'</div>';
 }
 function rosterHTML(r,cid){
   const g=game(r.gameId);

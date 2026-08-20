@@ -63,10 +63,17 @@
   .row{display:flex;gap:9px;align-items:center;flex-wrap:wrap}
   .dot{width:10px;height:10px;border-radius:99px;flex:none}
 
-  .sb{display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:12px}
-  .crewcard{background:var(--panel2);border:1px solid var(--line);border-radius:14px;padding:14px 14px 12px;position:relative;overflow:hidden}
+  .sb{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px}
+  .crewcard{
+    background:
+      radial-gradient(180px 90px at 50% 0,rgba(255,255,255,.045),transparent 70%),
+      linear-gradient(180deg,#1a2333,#141b28 58%,#111826);
+    border:1px solid var(--line);border-radius:16px;padding:16px 16px 14px;position:relative;overflow:hidden;
+    transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+  }
+  .crewcard:hover{transform:translateY(-2px);box-shadow:0 16px 34px rgba(0,0,0,.22)}
   .crewcard .bar{position:absolute;left:0;top:0;bottom:0;width:4px}
-  .crewcard .nm{font-weight:900;font-size:16.5px;display:flex;align-items:center;gap:7px}
+  .crewcard .nm{font-weight:900;font-size:17.5px;display:flex;align-items:center;gap:7px}
   .crewcard .cnt{color:var(--muted);font-size:12.5px}
   .crewcard .wins{font-size:34px;font-weight:900;line-height:1.1;margin-top:4px}
   .crewcard .wins small{font-size:13px;color:var(--muted);font-weight:700}
@@ -347,8 +354,24 @@
   body.readonly .readonly-note{display:block}
 
   /* 관리자가 직접 등록하는 크루 배너 */
-  .crewcard .crew-banner-wrap{height:58px;display:flex;align-items:center;justify-content:center;margin:1px 0 9px;padding:3px 8px;border-radius:10px;background:rgba(8,12,18,.32);overflow:hidden}
-  .crewcard .crew-banner-img{display:block;max-width:100%;max-height:50px;width:auto;height:auto;object-fit:contain}
+  .crewcard .crew-banner-wrap{
+    height:94px;display:flex;align-items:center;justify-content:center;
+    margin:2px 0 13px;padding:12px 14px;border-radius:16px;
+    background:
+      linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.018)),
+      linear-gradient(135deg,rgba(255,255,255,.015),rgba(255,255,255,0));
+    overflow:hidden;position:relative;border:1px solid rgba(255,255,255,.09);
+  }
+  .crewcard .crew-banner-wrap::before{
+    content:"";position:absolute;inset:-22% 12% auto;height:100%;pointer-events:none;opacity:.9;
+    background:radial-gradient(circle,rgba(255,255,255,.18),transparent 62%);
+    filter:blur(16px);
+  }
+  .crewcard .crew-banner-img{
+    display:block;position:relative;z-index:1;max-width:100%;max-height:68px;width:auto;height:auto;object-fit:contain;
+    filter:drop-shadow(0 8px 20px rgba(0,0,0,.34));transition:transform .18s ease, filter .18s ease;
+  }
+  .crewcard:hover .crew-banner-img{transform:scale(1.04);filter:drop-shadow(0 12px 24px rgba(0,0,0,.38))}
   .crew-mini-banner{display:inline-block;max-width:90px;max-height:24px;width:auto;height:auto;object-fit:contain;vertical-align:middle;margin-right:5px;flex:none}
   .crew-banner-admin{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 12px;padding:10px;border:1px dashed #354158;border-radius:11px;background:#101620}
   .crew-banner-admin .preview{width:150px;height:48px;display:flex;align-items:center;justify-content:center;border:1px solid var(--line);border-radius:9px;background:#0b1018;overflow:hidden;flex:none}
@@ -394,9 +417,14 @@
     color:color-mix(in srgb,var(--pr-main) 74%,#fff);margin-bottom:6px;
   }
   .pr-title{
-    margin:0;font-size:clamp(28px,4vw,48px);line-height:1;
+    margin:0;min-height:74px;display:flex;align-items:center;justify-content:center;
+    font-size:clamp(28px,4vw,48px);line-height:1;
     font-weight:950;letter-spacing:-1.6px;color:#f3f7fd;
     text-shadow:0 5px 28px rgba(0,0,0,.48);
+  }
+  .pr-title .pr-title-banner{
+    display:block;max-width:min(320px,70vw);max-height:74px;width:auto;height:auto;object-fit:contain;
+    filter:drop-shadow(0 10px 24px rgba(0,0,0,.38));
   }
   .pr-count{margin-top:9px;color:#93a2b8;font-size:13px;font-weight:800}
   .pr-count b{color:var(--pr-soft);font-size:15px}
@@ -411,9 +439,10 @@
   }
   .pr-crew-name{
     font-size:15px;font-weight:950;letter-spacing:.3px;color:#eaf1fb;
-    padding:6px 15px;border-radius:999px;
+    padding:7px 17px;border-radius:999px;
     border:1px solid color-mix(in srgb,var(--pr-main) 60%,transparent);
     background:color-mix(in srgb,var(--pr-deep) 34%,rgba(10,15,23,.8));
+    box-shadow:0 8px 20px rgba(0,0,0,.18);
   }
 
   .pr-reveal-wrap{
@@ -595,6 +624,8 @@
     .pr-nameplate{min-width:230px}
     .pr-player-name{font-size:21px}
     .pr-picked{max-height:92px;overflow:auto}
+    .pr-title{min-height:60px}
+    .pr-title .pr-title-banner{max-width:62vw;max-height:56px}
   }
 
   @media(max-width:520px){
@@ -648,7 +679,7 @@
   <div class="pr-stage" id="prStage">
     <div class="pr-head">
       <div class="pr-kicker">PLAYER DRAW</div>
-      <h2 class="pr-title">PLAYER REVEAL</h2>
+      <h2 class="pr-title" id="prTitle">PLAYER REVEAL</h2>
       <div class="pr-count" id="prCount">1 / 1</div>
     </div>
 
@@ -1118,6 +1149,21 @@ function crewBannerHTML(c,cls){
   if(!c||!c.banner)return '';
   return '<img class="'+(cls||'crew-mini-banner')+'" src="'+esc(c.banner)+'" alt="'+esc(c.name||'크루')+' 배너">';
 }
+function hexToRgba(hex,alpha){
+  const h=String(hex||'').replace('#','').trim();
+  const n=h.length===3?h.split('').map(ch=>ch+ch).join(''):h;
+  if(!/^[0-9a-fA-F]{6}$/.test(n)) return 'rgba(91,140,255,'+(alpha||0)+')';
+  const v=parseInt(n,16),r=(v>>16)&255,g=(v>>8)&255,b=v&255;
+  return 'rgba('+r+','+g+','+b+','+(alpha==null?1:alpha)+')';
+}
+function crewBannerWrapStyle(c){
+  const color=(c&&c.color)||'#5b8cff';
+  return [
+    'border-color:'+hexToRgba(color,.34),
+    'background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.018)),linear-gradient(135deg,'+hexToRgba(color,.18)+',rgba(10,15,23,.12))',
+    'box-shadow:inset 0 1px 0 rgba(255,255,255,.05),0 12px 28px '+hexToRgba(color,.14)
+  ].join(';');
+}
 const winsOf=cid=>S.rounds.filter(r=>(r.winners||[]).includes(cid)).length;
 function champion(){
   const c=S.crews.filter(x=>winsOf(x.id)>=S.winTarget);
@@ -1381,9 +1427,13 @@ function resetPRVisual(){
   document.getElementById('prSigil').style.display='';
 }
 function setPRCrewHeader(c){
-  document.getElementById('prCrew').innerHTML=
-    (c.banner?'<img class="pr-crew-banner" src="'+esc(c.banner)+'" alt="'+esc(c.name)+'">':'')
-    +'<span class="pr-crew-name">'+esc(c.name)+'</span>';
+  const title=document.getElementById('prTitle');
+  if(title){
+    title.innerHTML=c.banner
+      ?'<img class="pr-title-banner" src="'+esc(c.banner)+'" alt="'+esc(c.name)+' 배너">'
+      :esc(c.name);
+  }
+  document.getElementById('prCrew').innerHTML='<span class="pr-crew-name">'+esc(c.name)+'</span>';
 }
 function openPlayerReveal(r,cid,auto){
   const k=perTeamOf(r);
@@ -1817,7 +1867,7 @@ function renderBoard(){
     return '<div class="crewcard'+(ch&&ch.id===c.id?' champ':'')+'">'
       +'<div class="bar" style="background:'+c.color+'"></div>'
       +(ch&&ch.id===c.id?'<div class="champtag">WINNER</div>':'')
-      +(c.banner?'<div class="crew-banner-wrap">'+crewBannerHTML(c,'crew-banner-img')+'</div>':'')
+      +(c.banner?'<div class="crew-banner-wrap" style="'+crewBannerWrapStyle(c)+'">'+crewBannerHTML(c,'crew-banner-img')+'</div>':'')
       +'<div class="nm"><span class="dot" style="background:'+c.color+'"></span>'+esc(c.name)+'</div>'
       +'<div class="cnt">'+c.members.length+'명</div>'
       +'<div class="wins">'+w+'<small> / '+S.winTarget+'승</small></div>'

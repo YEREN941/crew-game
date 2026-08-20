@@ -1377,17 +1377,59 @@ const participantsOf=r=>unitsOf(r).flat();
 function appearCount(cid,mid){
   let n=0; S.rounds.forEach(r=>{const l=r.lineups[cid]; if(l&&l.includes(mid))n++;}); return n;
 }
-function pickMembers(cid,k){
+
+/*
+ * 선수 추첨 최근 출전 보정
+ * - 최근 출전 없음: 가중치 1.00
+ * - 직전 라운드 출전: 0.50
+ * - 직전 라운드 + 최근 3라운드 안에 추가 출전: 0.30
+ * - 직전에는 안 나왔지만 2라운드 전 출전: 0.70
+ * - 직전에는 안 나왔지만 3라운드 전 출전: 0.85
+ * - 4라운드 이상 지나면 1.00으로 완전 회복
+ * 가중치는 '확률 배수'이며, 실제 당첨 확률은 현재 후보들의 가중치 합으로 정규화됩니다.
+ */
+function recentMemberWeight(r,cid,mid){
+  const idx=S.rounds.findIndex(x=>x.id===r.id);
+  if(idx<=0) return 1;
+  const seen=[];
+  for(let back=1;back<=3;back++){
+    const rr=S.rounds[idx-back];
+    if(!rr) break;
+    const lineup=rr.lineups&&rr.lineups[cid];
+    if(Array.isArray(lineup)&&lineup.includes(mid)) seen.push(back);
+  }
+  if(!seen.length) return 1;
+  if(seen.includes(1)) return seen.length>=2 ? .30 : .50;
+  if(seen.includes(2)) return .70;
+  if(seen.includes(3)) return .85;
+  return 1;
+}
+function weightedMemberIds(r,cid,k){
   const c=crew(cid); if(!c) return [];
-  const a=c.members.map(m=>({id:m.id,a:appearCount(cid,m.id),r:Math.random()}));
-  a.sort((x,y)=>x.a-y.a||x.r-y.r);
-  return a.slice(0,Math.min(k,a.length)).map(x=>x.id);
+  const pool=(c.members||[]).map(m=>({id:m.id,w:Math.max(.01,recentMemberWeight(r,cid,m.id))}));
+  const out=[];
+  const count=Math.min(k,pool.length);
+  while(out.length<count&&pool.length){
+    const total=pool.reduce((sum,x)=>sum+x.w,0);
+    let roll=Math.random()*total,chosen=pool.length-1;
+    for(let i=0;i<pool.length;i++){
+      roll-=pool[i].w;
+      if(roll<=0){chosen=i;break;}
+    }
+    out.push(pool[chosen].id);
+    pool.splice(chosen,1); // 한 번의 추첨 안에서는 중복 출전 없음
+  }
+  return out;
+}
+function pickMembers(cid,k,r){
+  if(!r) r=S.rounds[S.rounds.length-1];
+  return r?weightedMemberIds(r,cid,k):[];
 }
 function perTeamOf(r){ const g=game(r.gameId); return g?Number(g.perTeam)||0:0; }
 function autoLineup(r){
   const k=perTeamOf(r); r.lineups={};
   if(!k) return;
-  participantsOf(r).forEach(cid=>{ r.lineups[cid]=pickMembers(cid,k); });
+  participantsOf(r).forEach(cid=>{ r.lineups[cid]=pickMembers(cid,k,r); });
 }
 function clearRoundResult(r){
   r.lineups={};r.scores={};r.winners=[];r.semiWinners=[null,null];
@@ -1619,13 +1661,9 @@ function applyPlayerRevealTheme(c){
   m.style.setProperty('--pr-deep',t.deep);
   m.style.setProperty('--pr-soft',t.soft);
 }
-function shuffledMemberIds(c,k){
-  const a=(c.members||[]).map(m=>m.id);
-  for(let i=a.length-1;i>0;i--){
-    const j=Math.random()*(i+1)|0;
-    [a[i],a[j]]=[a[j],a[i]];
-  }
-  return a.slice(0,Math.min(k,a.length));
+function shuffledMemberIds(c,k,r){
+  if(!c||!r) return [];
+  return weightedMemberIds(r,c.id,k);
 }
 function prMember(id){
   const c=crew(PR.cid);
@@ -1679,7 +1717,7 @@ function openPlayerReveal(r,cid,auto){
 
   clearPRTimers();
   PR.roundId=r.id;PR.cid=cid;PR.auto=!!auto;PR.index=0;
-  PR.revealed=[];PR.selected=shuffledMemberIds(c,k);PR.spinning=false;PR.applied=false;
+  PR.revealed=[];PR.selected=shuffledMemberIds(c,k,r);PR.spinning=false;PR.applied=false;
 
   applyPlayerRevealTheme(c);
   setPRCrewHeader(c);
@@ -1691,7 +1729,7 @@ function openPlayerReveal(r,cid,auto){
   document.getElementById('prDoneBtn').style.display='none';
   document.getElementById('prCancelBtn').style.display='';
   document.getElementById('prCancelBtn').textContent='취소';
-  document.getElementById('prStatus').textContent=auto?'자동 추첨 시작':'첫 번째 선수 추첨';
+  document.getElementById('prStatus').textContent=auto?'모두 뽑기 시작':'첫 번째 선수 추첨';
 
   const modal=document.getElementById('playerRevealModal');
   modal.classList.add('on');modal.setAttribute('aria-hidden','false');

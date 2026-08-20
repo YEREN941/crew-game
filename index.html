@@ -600,6 +600,35 @@
     color:#75849a;font-size:11px;letter-spacing:.5px;z-index:2;white-space:nowrap;
   }
 
+  /* 라운드 진행 단계 */
+  .round-steps{display:flex;align-items:center;gap:8px;margin-bottom:13px;padding:9px 11px;border:1px solid #2d3747;border-radius:12px;background:#0f151f}
+  .round-step{display:flex;align-items:center;gap:7px;color:#65748a;font-size:12px;font-weight:850;white-space:nowrap}
+  .round-step .num{width:23px;height:23px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#202a38;border:1px solid #344157;color:#8796aa;font-size:11px}
+  .round-step.on{color:#dce7f7}.round-step.on .num{background:var(--accent);border-color:var(--accent);color:#fff}
+  .round-step.done{color:#91a5c1}.round-step.done .num{background:#20382f;border-color:#356b55;color:#90e0bb}
+  .round-step-line{height:1px;flex:1;min-width:18px;background:#2a3546}
+  .match-confirm-row{margin-top:12px;padding-top:11px;border-top:1px dashed #303b4c}
+  .match-summary{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:13px;padding:10px 12px;border:1px solid #2f3b4e;border-radius:12px;background:#101722}
+  .match-summary b{font-size:12px;color:#99a9bf;letter-spacing:.4px}
+  .match-summary .match-text{font-weight:850;color:#e0e8f4}
+  .final-arena{margin-top:12px;border:1px solid #6b5723;border-radius:15px;background:linear-gradient(180deg,rgba(245,196,81,.08),rgba(13,19,29,.96));overflow:hidden}
+  .final-head{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid #55471f;background:rgba(245,196,81,.07)}
+  .final-head b{font-size:12px;color:#f5d87d;letter-spacing:1px}
+  .final-body{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:10px}
+  .final-wait{padding:18px;text-align:center;color:#8290a4;font-size:13px}
+
+  /* 수동 출전자 선택 */
+  .manual-lineup-modal{position:fixed;inset:0;z-index:150;display:none;align-items:center;justify-content:center;padding:18px;background:rgba(4,8,13,.86);backdrop-filter:blur(8px)}
+  .manual-lineup-modal.on{display:flex}
+  .ml-box{width:min(720px,96vw);max-height:88vh;overflow:auto;background:#141b26;border:1px solid #354158;border-radius:18px;padding:18px;box-shadow:0 28px 80px rgba(0,0,0,.5)}
+  .ml-head{display:flex;align-items:flex-start;gap:10px;margin-bottom:12px}.ml-head h2{font-size:18px;margin:0}.ml-head .sub{margin:3px 0 0}
+  .ml-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(135px,1fr));gap:9px}
+  .ml-member{display:flex;align-items:center;gap:8px;padding:8px;border-radius:12px;border:1px solid #2d384a;background:#101722;color:#dfe7f3;text-align:left;min-width:0}
+  .ml-member:hover{border-color:#52637e;background:#151e2c}.ml-member.on{border-color:var(--accent);background:rgba(91,140,255,.13);box-shadow:0 0 0 2px rgba(91,140,255,.08)}
+  .ml-member .av{width:42px;height:42px;flex:none}.ml-member span{font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .ml-actions{display:flex;align-items:center;gap:8px;justify-content:flex-end;margin-top:14px}.ml-count{margin-right:auto;color:#9eabc0;font-size:12.5px;font-weight:800}
+  @media(max-width:620px){.round-step span:last-child{display:none}.final-body{grid-template-columns:1fr}.ml-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
   @keyframes prOverlayIn{from{opacity:0}to{opacity:1}}
   @keyframes prBgDrift{to{transform:translate3d(6%,3%,0)}}
   @keyframes prRays{to{transform:rotate(360deg)}}
@@ -668,7 +697,7 @@
     <div class="picked" id="mPicked"></div>
     <div class="mbtns">
       <button class="purple" id="mSpin">🎡 돌리기</button>
-      <button id="mBurst">한 번에 전부</button>
+      <button id="mBurst">모두 뽑기</button>
       <button class="primary" id="mApply" style="display:none">적용하기</button>
       <button class="ghost" id="mClose">닫기</button>
     </div>
@@ -708,6 +737,20 @@
       <button class="ghost" id="prCancelBtn">취소</button>
     </div>
     <div class="pr-status" id="prStatus">선수 추첨 준비</div>
+  </div>
+</div>
+
+<div class="manual-lineup-modal" id="manualLineupModal" aria-hidden="true">
+  <div class="ml-box">
+    <div class="ml-head">
+      <div><h2 id="mlTitle">출전자 수동 선택</h2><p class="sub" id="mlSub">선수를 선택해주세요.</p></div>
+    </div>
+    <div class="ml-grid" id="mlGrid"></div>
+    <div class="ml-actions">
+      <span class="ml-count" id="mlCount">0 / 0</span>
+      <button class="ghost" id="mlCancelBtn">취소</button>
+      <button class="primary" id="mlApplyBtn">선택 완료</button>
+    </div>
   </div>
 </div>
 
@@ -778,7 +821,6 @@
     <div class="card noprint">
       <div class="row">
         <button class="primary" data-act="addRound">+ 라운드 추가</button>
-        <button data-act="autoAllRounds">모든 라운드 출전자 재배정</button>
         <span class="spacer"></span>
         <button class="danger sm" data-act="resetResults">결과 초기화</button>
       </div>
@@ -1099,8 +1141,8 @@ function defaultState(){
   return S;
 }
 function newRound(mode){
-  return {id:uid(),mode:mode||'all',gameId:null,order:null,teams:null,
-          lineups:{},scores:{},winners:[],memo:''};
+  return {id:uid(),mode:mode||'all',stage:'game',gameId:null,order:null,teams:null,
+          lineups:{},scores:{},semiWinners:[null,null],winners:[],memo:''};
 }
 function migrate(d){
   if(!d) return d;
@@ -1114,6 +1156,16 @@ function migrate(d){
     if(r.order===undefined) r.order=null;
     if(!r.lineups) r.lineups={};
     if(!r.scores) r.scores={};
+    if(r.mode==='semi'){
+      if(!Array.isArray(r.semiWinners)){
+        r.semiWinners=[r.winners[0]||null,r.winners[1]||null];
+        r.winners=[];
+      }else{
+        r.semiWinners=[r.semiWinners[0]||null,r.semiWinners[1]||null];
+        if(r.winners.length>1) r.winners=r.winners.slice(0,1);
+      }
+    }else if(!Array.isArray(r.semiWinners)) r.semiWinners=[null,null];
+    if(!r.stage) r.stage=r.gameId?'lineup':'game';
   });
   (d.crews||[]).forEach(c=>{
     if(c.banner===undefined)c.banner=null;
@@ -1207,6 +1259,38 @@ function autoLineup(r){
   const k=perTeamOf(r); r.lineups={};
   if(!k) return;
   participantsOf(r).forEach(cid=>{ r.lineups[cid]=pickMembers(cid,k); });
+}
+function clearRoundResult(r){
+  r.lineups={};r.scores={};r.winners=[];r.semiWinners=[null,null];
+}
+function matchupReady(r){
+  if(r.mode==='all') return S.crews.length>0;
+  const units=unitsOf(r);
+  if(r.mode==='1v1') return units.length===2&&units.every(u=>u.length===1)&&units[0][0]!==units[1][0];
+  if(r.mode==='semi'){
+    const ids=units.flat();
+    return units.length===4&&units.every(u=>u.length===1)&&ids.length===4&&new Set(ids).size===4;
+  }
+  if(r.mode==='custom'){
+    const raw=r.teams||[];
+    if(raw.length<2||raw.some(g=>!g.length||g.some(v=>!v)))return false;
+    const ids=raw.flat();return ids.length>=2&&new Set(ids).size===ids.length;
+  }
+  return false;
+}
+function matchupSummary(r){
+  if(r.mode==='all') return '전 크루 동시전'+(r.order&&r.order.length?' · 순번 '+r.order.map(crewName).join(' → '):'');
+  const u=unitsOf(r);
+  if(r.mode==='semi') return (u[0]?u[0].map(crewName).join(' + '):'?')+' VS '+(u[1]?u[1].map(crewName).join(' + '):'?')+' / '+(u[2]?u[2].map(crewName).join(' + '):'?')+' VS '+(u[3]?u[3].map(crewName).join(' + '):'?');
+  return u.map(x=>x.map(crewName).join(' + ')).join(' VS ');
+}
+function roundStepsHTML(r){
+  const stage=r.stage||(!r.gameId?'game':'lineup');
+  const idx=stage==='game'?0:(stage==='match'?1:2);
+  const labels=['종목','대진','참여자 · 경기'];
+  return '<div class="round-steps">'+labels.map((s,i)=>
+    (i?'<div class="round-step-line"></div>':'')+'<div class="round-step '+(i<idx?'done':(i===idx?'on':''))+'"><span class="num">'+(i+1)+'</span><span>'+s+'</span></div>'
+  ).join('')+'</div>';
 }
 function toast(msg){
   const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('on');
@@ -1323,16 +1407,16 @@ function rouletteMatch(r){
   if(items.length<2){ toast('크루가 2팀 이상 필요합니다.'); return; }
   if(r.mode==='all'){
     openRoulette({title:'순번 룰렛',sub:'전 크루 동시전 · 진행 순번을 뽑습니다',items,count:items.length,
-      onDone:v=>{ r.order=v; render(); toast('순번이 정해졌습니다.'); }});
+      onDone:v=>{ r.order=v; clearRoundResult(r); r.stage='lineup'; render(); toast('순번이 정해졌습니다.'); }});
   }else if(r.mode==='1v1'){
     openRoulette({title:'대진 룰렛',sub:'맞붙을 두 크루를 뽑습니다',items,count:2,
-      onDone:v=>{ r.teams=[[v[0]],[v[1]]]; autoLineup(r); render(); toast(crewName(v[0])+' VS '+crewName(v[1])); }});
+      onDone:v=>{ r.teams=[[v[0]],[v[1]]]; clearRoundResult(r); r.stage='lineup'; render(); toast(crewName(v[0])+' VS '+crewName(v[1])); }});
   }else if(r.mode==='semi'){
     if(items.length<4){ toast('4강전은 크루가 4팀 이상 필요합니다.'); return; }
     openRoulette({title:'4강 대진 룰렛',sub:'뽑힌 순서대로 Match 1 · Match 2 대진을 구성합니다',items,count:4,
       onDone:v=>{
         r.teams=[[v[0]],[v[1]],[v[2]],[v[3]]];
-        r.winners=[]; autoLineup(r); render();
+        clearRoundResult(r); r.stage='lineup'; render();
         toast(crewName(v[0])+' VS '+crewName(v[1])+' / '+crewName(v[2])+' VS '+crewName(v[3]));
       }});
   }else{
@@ -1344,7 +1428,7 @@ function rouletteMatch(r){
       onDone:v=>{
         let p=0;
         r.teams=r.teams.map(grp=>grp.map(()=>v[p++]||null));
-        r.winners=[]; autoLineup(r); render(); toast('커스텀 대진이 랜덤 배정되었습니다.');
+        clearRoundResult(r); r.stage='lineup'; render(); toast('커스텀 대진이 랜덤 배정되었습니다.');
       }});
   }
 }
@@ -1599,6 +1683,44 @@ function rouletteLineup(r,cid,burst){
   openPlayerReveal(r,cid,burst);
 }
 
+const LM={roundId:null,cid:null,selected:[],limit:0};
+function renderManualLineup(){
+  const r=S.rounds.find(x=>x.id===LM.roundId),c=crew(LM.cid);if(!r||!c)return;
+  const chosen=new Set(LM.selected);
+  document.getElementById('mlGrid').innerHTML=c.members.map(m=>
+    '<button type="button" class="ml-member'+(chosen.has(m.id)?' on':'')+'" data-manual-mid="'+m.id+'">'+avatar(m)+'<span>'+esc(m.name)+'</span></button>'
+  ).join('');
+  document.getElementById('mlCount').textContent=LM.selected.length+' / '+LM.limit+'명 선택';
+  document.getElementById('mlApplyBtn').disabled=LM.selected.length!==LM.limit;
+}
+function openManualLineup(r,cid){
+  const c=crew(cid),k=perTeamOf(r);if(!c||!k)return;
+  if(c.members.length<k){toast(c.name+'의 선수 수가 팀당 인원보다 적습니다.');return;}
+  LM.roundId=r.id;LM.cid=cid;LM.limit=k;
+  LM.selected=(r.lineups[cid]||[]).filter(id=>c.members.some(m=>m.id===id)).slice(0,k);
+  document.getElementById('mlTitle').textContent=c.name+' · 출전자 수동 선택';
+  document.getElementById('mlSub').textContent='총 '+k+'명을 직접 선택해주세요.';
+  renderManualLineup();
+  const modal=document.getElementById('manualLineupModal');modal.classList.add('on');modal.setAttribute('aria-hidden','false');
+}
+function closeManualLineup(){
+  const modal=document.getElementById('manualLineupModal');modal.classList.remove('on');modal.setAttribute('aria-hidden','true');
+}
+document.getElementById('mlGrid').addEventListener('click',e=>{
+  const b=e.target.closest('[data-manual-mid]');if(!b)return;
+  const mid=b.dataset.manualMid,idx=LM.selected.indexOf(mid);
+  if(idx>=0)LM.selected.splice(idx,1);
+  else{if(LM.selected.length>=LM.limit){toast('최대 '+LM.limit+'명까지 선택할 수 있습니다.');return;}LM.selected.push(mid);}
+  renderManualLineup();
+});
+document.getElementById('mlCancelBtn').addEventListener('click',closeManualLineup);
+document.getElementById('mlApplyBtn').addEventListener('click',()=>{
+  if(LM.selected.length!==LM.limit){toast(LM.limit+'명을 선택해주세요.');return;}
+  const r=S.rounds.find(x=>x.id===LM.roundId);if(!r)return;
+  r.lineups[LM.cid]=LM.selected.slice();closeManualLineup();render();toast(crewName(LM.cid)+' 출전자 '+LM.limit+'명 수동 확정');
+});
+document.getElementById('manualLineupModal').addEventListener('click',e=>{if(e.target.id==='manualLineupModal')closeManualLineup();});
+
 /* ================= 방송형 종목 룰렛 ================= */
 const GR={
   roundId:null,
@@ -1739,8 +1861,10 @@ function spinGameRoulette(){
 
     // 최종 결과에서만 상태/서버 저장. 중간 애니메이션은 저장하지 않습니다.
     r.gameId=target.id;
-    r.winners=[];
-    autoLineup(r);
+    r.stage='match';
+    r.order=null;
+    r.teams=r.mode==='all'?null:(r.teams||defaultTeams(r.mode));
+    clearRoundResult(r);
     render();
 
     document.getElementById('grResult').innerHTML='SELECTED GAME<strong>'+esc(target.name)+'</strong>';
@@ -1801,7 +1925,7 @@ function spinSlot(r){
   })();
   setTimeout(()=>{
     spinning[r.id]=false; frame.classList.add('done'); dingdong();
-    r.gameId=target.id; autoLineup(r);
+    r.gameId=target.id; r.stage='match'; r.order=null; r.teams=r.mode==='all'?null:(r.teams||defaultTeams(r.mode)); clearRoundResult(r);
     setTimeout(()=>{render();setTimeout(flushPendingRemote,0);},700);
   },dur*1000+60);
 }
@@ -1879,7 +2003,8 @@ function renderBoard(){
     const vs=r.mode==='all'?'전 크루'
       :(r.mode==='semi'
         ?((unitsOf(r)[0]||[]).map(crewName).join('·')+' VS '+(unitsOf(r)[1]||[]).map(crewName).join('·')
-          +' / '+(unitsOf(r)[2]||[]).map(crewName).join('·')+' VS '+(unitsOf(r)[3]||[]).map(crewName).join('·'))
+          +' / '+(unitsOf(r)[2]||[]).map(crewName).join('·')+' VS '+(unitsOf(r)[3]||[]).map(crewName).join('·')
+          +((r.semiWinners||[])[0]&&(r.semiWinners||[])[1]?' → FINAL '+crewName(r.semiWinners[0])+' VS '+crewName(r.semiWinners[1]):''))
         :unitsOf(r).map(u=>u.map(crewName).join('·')).join(' VS '));
     const win=r.winners.length?r.winners.map(id=>'<b style="color:'+crewColor(id)+'">'+esc(crewName(id))+'</b>').join(' · ')
       :'<span class="hint">대기</span>';
@@ -1941,7 +2066,7 @@ function setupHTML(r){
       +'<div class="semi-match-setup"><div class="semi-match-label">MATCH 2</div><div class="semi-pair">'
       +crewSelect(r,2,0,(t[2]||[])[0]||null)+'<span class="vsx">VS</span>'+crewSelect(r,3,0,(t[3]||[])[0]||null)
       +'</div></div></div>'
-      +'<div class="hint" style="margin-top:8px">각 경기에서 한 크루씩 승리 처리하면 4강전 결과가 완료됩니다.</div>';
+      +'<div class="hint" style="margin-top:8px">4강 두 경기의 승자가 결정되면 같은 라운드 안에서 결승전이 열립니다.</div>';
   }else if(r.mode==='custom'){
     const t=r.teams||defaultTeams('custom');
     body='<div class="custom-match">'+t.map((grp,ti)=>
@@ -1962,23 +2087,27 @@ function setupHTML(r){
       (ti?'<span class="vsx">VS</span>':'')
       +'<span class="teamsel">'+grp.map((cid,pi)=>crewSelect(r,ti,pi,cid)).join('')+'</span>').join('')+'</div>';
   }
-  return '<div class="setup noprint"><div class="lbl">대진</div>'
-    +'<div class="slots" style="margin-bottom:'+(r.mode==='all'?'10px':'10px')+'">'+modeSel
+  return '<div class="setup noprint"><div class="lbl">대진 선택</div>'
+    +'<div class="slots" style="margin-bottom:10px">'+modeSel
     +'<button class="purple sm" data-act="rMatch" data-id="'+r.id+'">🎡 '+(r.mode==='all'?'순번 룰렛':(r.mode==='semi'?'4강 대진 룰렛':'대진 룰렛'))+'</button>'
     +(r.mode==='all'&&r.order?'<button class="ghost sm" data-act="clearOrder" data-id="'+r.id+'">순번 지우기</button>':'')
-    +'</div>'+body+'</div>';
+    +'</div>'+body
+    +'<div class="row match-confirm-row"><button class="primary" data-act="confirmMatch" data-id="'+r.id+'">대진 확정 · 참여자 선택으로</button>'
+    +'<span class="hint">대진을 확정한 뒤 각 크루의 참여자를 뽑거나 직접 선택합니다.</span></div></div>';
 }
 
 function renderRounds(){
   const el=document.getElementById('roundList');
   if(!S.rounds.length){ el.innerHTML='<div class="empty">라운드를 추가해주세요.</div>'; return; }
   el.innerHTML=S.rounds.map((r,i)=>{
-    const g=game(r.gameId),done=(r.mode==='semi'?r.winners.length>=2:r.winners.length>0),k=perTeamOf(r);
-    const units=unitsOf(r);
+    const g=game(r.gameId),stage=r.stage||(!r.gameId?'game':'lineup'),done=r.winners.length>0,k=perTeamOf(r);
+    const units=unitsOf(r),semiW=Array.isArray(r.semiWinners)?r.semiWinners:[null,null];
 
-    const teamCard=(u,ui,pairWinner)=>{
-      const won=u.length&&u.every(id=>r.winners.includes(id));
-      const dim=!!pairWinner&&!won;
+    const teamCard=(u,ui,opt)=>{
+      opt=opt||{};
+      const winnerId=opt.winnerId||null;
+      const won=!!winnerId&&u.includes(winnerId);
+      const dim=!!winnerId&&!won;
       const head=u.map(id=>{
         const c=crew(id);
         return (c&&c.banner?crewBannerHTML(c,'crew-mini-banner'):'')
@@ -1989,60 +2118,76 @@ function renderRounds(){
         +(u.length>1?'<div class="crewrow"><span class="dot" style="background:'+crewColor(cid)+'"></span>'+esc(crewName(cid))+'</div>':'')
         +'<div class="roster">'+rosterHTML(r,cid)+'</div>'
         +(k?'<div class="rbtns noprint">'
-            +'<button class="purple sm" data-act="rLineup" data-id="'+r.id+'" data-cid="'+cid+'">✨ 한 명씩</button>'
-            +'<button class="sm" data-act="rLineupBurst" data-id="'+r.id+'" data-cid="'+cid+'">✨ 한 번에</button>'
-            +'<button class="ghost sm" data-act="autoOne" data-id="'+r.id+'" data-cid="'+cid+'">자동</button>'
+            +'<button class="purple sm" data-act="rLineup" data-id="'+r.id+'" data-cid="'+cid+'">✨ 선수 뽑기</button>'
+            +'<button class="sm" data-act="rLineupBurst" data-id="'+r.id+'" data-cid="'+cid+'">✨ 모두 뽑기</button>'
+            +'<button class="ghost sm" data-act="manualLineup" data-id="'+r.id+'" data-cid="'+cid+'">수동 선택</button>'
             +'<input data-act="score" data-id="'+r.id+'" data-cid="'+cid+'" placeholder="점수" value="'+esc(r.scores[cid]||'')+'" style="width:78px;padding:5px 7px;text-align:center">'
           +'</div>'
           :'<div class="rbtns noprint"><input data-act="score" data-id="'+r.id+'" data-cid="'+cid+'" placeholder="점수" value="'+esc(r.scores[cid]||'')+'" style="width:78px;padding:5px 7px;text-align:center"></div>')
         +'</div>').join('');
+      let action='win',extra='',label=(r.mode==='all'?'1등으로':'승리로');
+      if(opt.kind==='semi'){ action='semiWin';extra=' data-match="'+opt.match+'"';label='4강 승리'; }
+      if(opt.kind==='final'){ action='finalWin';label='우승으로'; }
       return '<div class="team'+(won?' won':'')+(dim?' dim':'')+'">'
         +(won?'<div class="crown">👑</div>':'')
         +'<div class="th">'+head+'</div>'+inner
         +'<div class="teamfoot noprint"><button class="'+(won?'gold':'')+' sm" style="flex:1" '
-        +'data-act="win" data-id="'+r.id+'" data-ui="'+ui+'">'+(won?'승리 🏆':(r.mode==='all'?'1등으로':'승리로'))+'</button></div>'
+        +'data-act="'+action+'" data-id="'+r.id+'" data-ui="'+ui+'"'+extra+'>'+(won?'승리 🏆':label)+'</button></div>'
         +'</div>';
     };
 
     let arena='';
     if(r.mode==='semi'){
-      const pair0winner=(units[0]||[]).concat(units[1]||[]).find(id=>r.winners.includes(id));
-      const pair1winner=(units[2]||[]).concat(units[3]||[]).find(id=>r.winners.includes(id));
+      const m1=semiW[0]||null,m2=semiW[1]||null,finalWinner=r.winners[0]||null;
       arena='<div class="semi-arena">'
-        +'<div class="semi-match'+(pair0winner?' done':'')+'"><div class="semi-match-head"><b>MATCH 1</b><span class="spacer"></span>'
-        +(pair0winner?'<span class="hint">승자 '+esc(crewName(pair0winner))+'</span>':'<span class="hint">대기</span>')+'</div>'
-        +'<div class="semi-match-body">'+teamCard(units[0]||[],0,pair0winner)+teamCard(units[1]||[],1,pair0winner)+'</div></div>'
-        +'<div class="semi-match'+(pair1winner?' done':'')+'"><div class="semi-match-head"><b>MATCH 2</b><span class="spacer"></span>'
-        +(pair1winner?'<span class="hint">승자 '+esc(crewName(pair1winner))+'</span>':'<span class="hint">대기</span>')+'</div>'
-        +'<div class="semi-match-body">'+teamCard(units[2]||[],2,pair1winner)+teamCard(units[3]||[],3,pair1winner)+'</div></div>'
+        +'<div class="semi-match'+(m1?' done':'')+'"><div class="semi-match-head"><b>4강 MATCH 1</b><span class="spacer"></span>'
+        +(m1?'<span class="hint">승자 '+esc(crewName(m1))+'</span>':'<span class="hint">대기</span>')+'</div>'
+        +'<div class="semi-match-body">'+teamCard(units[0]||[],0,{kind:'semi',match:0,winnerId:m1})+teamCard(units[1]||[],1,{kind:'semi',match:0,winnerId:m1})+'</div></div>'
+        +'<div class="semi-match'+(m2?' done':'')+'"><div class="semi-match-head"><b>4강 MATCH 2</b><span class="spacer"></span>'
+        +(m2?'<span class="hint">승자 '+esc(crewName(m2))+'</span>':'<span class="hint">대기</span>')+'</div>'
+        +'<div class="semi-match-body">'+teamCard(units[2]||[],2,{kind:'semi',match:1,winnerId:m2})+teamCard(units[3]||[],3,{kind:'semi',match:1,winnerId:m2})+'</div></div>'
         +'</div>';
+      arena+=m1&&m2
+        ?'<div class="final-arena"><div class="final-head"><b>FINAL</b><span class="spacer"></span>'+(finalWinner?'<span class="hint">최종 승자 '+esc(crewName(finalWinner))+'</span>':'<span class="hint">결승 진행</span>')+'</div>'
+          +'<div class="final-body">'+teamCard([m1],4,{kind:'final',winnerId:finalWinner})+teamCard([m2],5,{kind:'final',winnerId:finalWinner})+'</div></div>'
+        :'<div class="final-arena"><div class="final-head"><b>FINAL</b></div><div class="final-wait">4강 두 경기의 승자를 먼저 결정하면 결승전이 열립니다.</div></div>';
     }else{
-      arena=units.map((u,ui)=>teamCard(u,ui,r.winners.length?r.winners[0]:null)).join('');
+      const overall=r.winners[0]||null;
+      arena=units.map((u,ui)=>teamCard(u,ui,{winnerId:overall})).join('');
     }
 
-    const slot=g?'':'<div class="game-draw-panel noprint">'
+    const slot='<div class="game-draw-panel noprint">'
       +'<div class="game-draw-head"><div>'
       +'<div class="game-draw-title">이번 라운드 종목 추첨</div>'
-      +'<div class="game-draw-sub">방송형 세로 룰렛으로 종목을 결정합니다.</div></div></div>'
+      +'<div class="game-draw-sub">먼저 종목을 결정하면 다음 단계에서 대진을 선택합니다.</div></div></div>'
       +'<div class="game-draw-actions">'
       +'<button class="game-roulette-btn" data-act="spin" data-id="'+r.id+'">🎰 GAME ROULETTE</button>'
       +'<select data-act="setGame" data-id="'+r.id+'" style="width:auto;min-width:190px">'+gameOptions(r)+'</select>'
       +'<span class="hint">관리자는 직접 선택도 가능합니다.</span></div></div>';
 
+    let stageBody='';
+    if(stage==='game'||!g){
+      stageBody=slot;
+    }else if(stage==='match'){
+      stageBody=setupHTML(r);
+    }else{
+      stageBody='<div class="match-summary"><b>확정 대진</b><span class="match-text">'+esc(matchupSummary(r))+'</span><span class="spacer"></span>'
+        +'<button class="ghost sm noprint" data-act="changeMatch" data-id="'+r.id+'">대진 변경</button></div>'
+        +(r.mode==='semi'?arena:'<div class="arena">'+arena+'</div>');
+    }
+
     return '<div class="round'+(!done?' active':'')+'"><div class="rh">'
       +'<span class="rno'+(done?' done':'')+'">R'+(i+1)+'</span>'
       +(g?'<span class="gtitle">'+esc(g.name)+'</span>':'<span class="hint">종목 미정</span>')
       +(g&&g.note?'<span class="gnote">'+esc(g.note)+'</span>':'')
-      +'<span class="modetag">'+(MODE_LABEL[r.mode]||'커스텀 대진')+'</span>'
-      +(k?'<span class="hint">팀당 '+k+'명</span>':'')
+      +(stage!=='game'?'<span class="modetag">'+(MODE_LABEL[r.mode]||'커스텀 대진')+'</span>':'')
+      +(stage==='lineup'&&k?'<span class="hint">팀당 '+k+'명</span>':'')
       +'<span class="spacer"></span>'
-      +(g?'<button class="ghost sm noprint" data-act="respin" data-id="'+r.id+'">종목 다시</button>'
-         +'<button class="ghost sm noprint" data-act="auto" data-id="'+r.id+'">출전자 자동배정</button>':'')
+      +(g?'<button class="ghost sm noprint" data-act="respin" data-id="'+r.id+'">종목 다시</button>':'')
       +'<button class="danger sm noprint" data-act="delRound" data-id="'+r.id+'">삭제</button>'
-      +'</div><div class="rbody">'+setupHTML(r)+slot
-      +(r.mode==='semi'?arena:'<div class="arena">'+arena+'</div>')
-      +'<div class="row" style="margin-top:12px"><input data-act="memo" data-id="'+r.id+'" placeholder="메모 (특이사항, 세부 점수 등)" value="'+esc(r.memo)+'" style="flex:1;min-width:200px">'
-      +'<button class="ghost sm noprint" data-act="clearWin" data-id="'+r.id+'">결과 취소</button></div>'
+      +'</div><div class="rbody">'+roundStepsHTML(r)+stageBody
+      +(stage==='lineup'?'<div class="row" style="margin-top:12px"><input data-act="memo" data-id="'+r.id+'" placeholder="메모 (특이사항, 세부 점수 등)" value="'+esc(r.memo)+'" style="flex:1;min-width:200px">'
+        +'<button class="ghost sm noprint" data-act="clearWin" data-id="'+r.id+'">결과 취소</button></div>':'')
       +'</div></div>';
   }).join('');
 }
@@ -2163,7 +2308,7 @@ document.addEventListener('click',e=>{
   if(act==='logout'){ logoutAdmin(); return; }
   if(SUPABASE_READY&&!currentUser&&!['print','export'].includes(act)){ toast('관리자 로그인 후 수정할 수 있습니다.'); return; }
 
-  if(act==='addRound'){ S.rounds.push(newRound(S.rounds.length?S.rounds[S.rounds.length-1].mode:'all')); }
+  if(act==='addRound'){ S.rounds.push(newRound('all')); }
   else if(act==='delRound'){ S.rounds=S.rounds.filter(x=>x.id!==id); }
   else if(act==='spin'){ openGameRoulette(r,true); return; }
   else if(act==='respin'){
@@ -2172,10 +2317,9 @@ document.addEventListener('click',e=>{
   else if(act==='rMatch'){ rouletteMatch(r); return; }
   else if(act==='rLineup'){ rouletteLineup(r,cid,false); return; }
   else if(act==='rLineupBurst'){ rouletteLineup(r,cid,true); return; }
-  else if(act==='autoOne'){ const k=perTeamOf(r); if(!k){toast('인원 제한이 없는 종목입니다.');return;}
-    r.lineups[cid]=pickMembers(cid,k); }
-  else if(act==='auto'){ if(!r.gameId){toast('먼저 종목을 뽑아주세요.');return;} autoLineup(r); }
-  else if(act==='autoAllRounds'){ S.rounds.forEach(x=>{x.lineups={};}); S.rounds.forEach(autoLineup); }
+  else if(act==='manualLineup'){ openManualLineup(r,cid); return; }
+  else if(act==='confirmMatch'){ if(!matchupReady(r)){toast('대진의 모든 크루를 먼저 선택해주세요.');return;} clearRoundResult(r); r.stage='lineup'; }
+  else if(act==='changeMatch'){ r.stage='match'; clearRoundResult(r); }
   else if(act==='clearOrder'){ r.order=null; }
   else if(act==='customAddCrew'){
     if(r.mode!=='custom')return;
@@ -2184,7 +2328,7 @@ document.addEventListener('click',e=>{
     if(total>=S.crews.length){toast('등록된 크루 수보다 자리를 더 만들 수 없습니다.');return;}
     const ti=+t.dataset.ti;
     if(!r.teams[ti])return;
-    r.teams[ti].push(null); r.winners=[]; autoLineup(r);
+    r.teams[ti].push(null); clearRoundResult(r);
   }
   else if(act==='customRemoveCrew'){
     if(r.mode!=='custom'||!r.teams)return;
@@ -2192,7 +2336,7 @@ document.addEventListener('click',e=>{
     if(!r.teams[ti]||r.teams[ti].length<=1){toast('진영에는 최소 1개의 크루 자리가 필요합니다.');return;}
     const removed=r.teams[ti].pop();
     if(removed)delete r.lineups[removed];
-    r.winners=[]; autoLineup(r);
+    clearRoundResult(r);
   }
   else if(act==='customAddSide'){
     if(r.mode!=='custom')return;
@@ -2200,7 +2344,7 @@ document.addEventListener('click',e=>{
     const total=customSlotCount(r);
     if(total>=S.crews.length){toast('등록된 크루 수보다 자리를 더 만들 수 없습니다.');return;}
     if(r.teams.length>=6){toast('진영은 최대 6개까지 만들 수 있습니다.');return;}
-    r.teams.push([null]); r.winners=[]; autoLineup(r);
+    r.teams.push([null]); clearRoundResult(r);
   }
   else if(act==='customRemoveSide'){
     if(r.mode!=='custom'||!r.teams)return;
@@ -2208,38 +2352,39 @@ document.addEventListener('click',e=>{
     const ti=+t.dataset.ti;
     const removed=r.teams.splice(ti,1)[0]||[];
     removed.filter(Boolean).forEach(cid=>delete r.lineups[cid]);
-    r.winners=[]; autoLineup(r);
+    clearRoundResult(r);
+  }
+  else if(act==='semiWin'){
+    if(r.mode!=='semi')return;
+    const match=Number(t.dataset.match),ui=Number(t.dataset.ui),u=unitsOf(r)[ui]||[],cid2=u[0];
+    if(!cid2)return;
+    if(!Array.isArray(r.semiWinners))r.semiWinners=[null,null];
+    r.semiWinners[match]=r.semiWinners[match]===cid2?null:cid2;
+    r.winners=[];
+    blip(r.semiWinners[match]?740:320,0.1,'triangle',0.06);
+  }
+  else if(act==='finalWin'){
+    if(r.mode!=='semi')return;
+    const ui=Number(t.dataset.ui),u=unitsOf(r),m1=(r.semiWinners||[])[0],m2=(r.semiWinners||[])[1];
+    const cid2=ui===4?m1:(ui===5?m2:null);if(!cid2)return;
+    const same=r.winners[0]===cid2;r.winners=same?[]:[cid2];
+    blip(r.winners.length?740:320,0.1,'triangle',0.06);
+    if(r.winners.length&&S.rounds[S.rounds.length-1].id===r.id&&!champion()&&availableGames(null).length)S.rounds.push(newRound('all'));
   }
   else if(act==='win'){
-    const ui=Number(t.dataset.ui), units=unitsOf(r), u=units[ui]||[];
-    if(r.mode==='semi'){
-      const pairStart=ui<2?0:2;
-      const pairIds=(units[pairStart]||[]).concat(units[pairStart+1]||[]);
-      const isCurrent=u.some(id=>r.winners.includes(id));
-      r.winners=r.winners.filter(id=>!pairIds.includes(id));
-      if(!isCurrent) r.winners.push(...u);
-      blip(!isCurrent?740:320,0.1,'triangle',0.06);
-
-      const bothDone=[0,2].every(ps=>{
-        const ids=(units[ps]||[]).concat(units[ps+1]||[]);
-        return ids.some(id=>r.winners.includes(id));
-      });
-      if(bothDone&&S.rounds[S.rounds.length-1].id===r.id&&!champion()&&availableGames(null).length)
-        S.rounds.push(newRound(r.mode));
-    }else{
-      const same=u.length===r.winners.length&&u.every(x=>r.winners.includes(x));
-      r.winners=same?[]:u.slice();
-      blip(r.winners.length?740:320,0.1,'triangle',0.06);
-      if(r.winners.length&&S.rounds[S.rounds.length-1].id===r.id&&!champion()&&availableGames(null).length)
-        S.rounds.push(newRound(r.mode));
-    }
+    const ui=Number(t.dataset.ui),units=unitsOf(r),u=units[ui]||[];
+    const same=u.length===r.winners.length&&u.every(x=>r.winners.includes(x));
+    r.winners=same?[]:u.slice();
+    blip(r.winners.length?740:320,0.1,'triangle',0.06);
+    if(r.winners.length&&S.rounds[S.rounds.length-1].id===r.id&&!champion()&&availableGames(null).length)
+      S.rounds.push(newRound('all'));
   }
-  else if(act==='clearWin'){ r.winners=[]; }
+  else if(act==='clearWin'){ r.winners=[]; r.semiWinners=[null,null]; }
   else if(act==='resetResults'){ if(!confirm('모든 라운드 결과를 지울까요?')) return;
-    S.rounds.forEach(x=>x.winners=[]); lastChamp=null; }
+    S.rounds.forEach(x=>{x.winners=[];x.semiWinners=[null,null];}); lastChamp=null; }
   else if(act==='addGame'){ S.games.push({id:uid(),name:'새 종목',perTeam:0,note:'',enabled:true}); }
   else if(act==='delGame'){ S.games=S.games.filter(g=>g.id!==id);
-    S.rounds.forEach(x=>{if(x.gameId===id){x.gameId=null;x.lineups={};}}); }
+    S.rounds.forEach(x=>{if(x.gameId===id){x.gameId=null;x.stage='game';x.lineups={};x.winners=[];x.semiWinners=[null,null];}}); }
   else if(act==='addCrew'){ S.crews.push({id:uid(),name:'새 크루',color:PALETTE[S.crews.length%PALETTE.length],banner:null,members:[]}); }
   else if(act==='delCrew'){ if(!confirm('이 크루를 삭제할까요?')) return;
     S.crews=S.crews.filter(c=>c.id!==id);
@@ -2274,14 +2419,16 @@ document.addEventListener('change',e=>{
   if(SUPABASE_READY&&!currentUser){ toast('관리자 로그인 후 수정할 수 있습니다.'); return; }
   const act=t.dataset.act,id=t.dataset.id,mid=t.dataset.mid;
   const r=S.rounds.find(x=>x.id===id),g=S.games.find(x=>x.id===id),c=crew(id);
-  if(act==='setGame'){ r.gameId=t.value||null; autoLineup(r); }
+  if(act==='setGame'){
+    r.gameId=t.value||null; r.stage=r.gameId?'match':'game'; r.order=null;
+    r.teams=r.mode==='all'?null:defaultTeams(r.mode); clearRoundResult(r);
+  }
   else if(act==='setMode'){
     if(t.value==='semi'&&S.crews.length<4){
       toast('4강전은 크루가 4팀 이상 필요합니다.');
       t.value=r.mode; return;
     }
-    r.mode=t.value; r.winners=[];
-    r.teams=r.mode==='all'?null:defaultTeams(r.mode); r.order=null; autoLineup(r);
+    r.mode=t.value; r.teams=r.mode==='all'?null:defaultTeams(r.mode); r.order=null; clearRoundResult(r); r.stage='match';
   }
   else if(act==='setTeamCrew'){
     const ti=+t.dataset.ti,pi=+t.dataset.pi;
@@ -2292,10 +2439,10 @@ document.addEventListener('change',e=>{
     // 같은 크루가 두 자리에 들어가면 이전 자리를 비움
     if(t.value) r.teams.forEach((grp,gi)=>grp.forEach((v,vi)=>{
       if(v===t.value&&!(gi===ti&&vi===pi)) r.teams[gi][vi]=null; }));
-    r.winners=[]; autoLineup(r); }
+    clearRoundResult(r); }
   else if(act==='gName'){ g.name=t.value; }
   else if(act==='gNum'){ g.perTeam=Math.max(0,parseInt(t.value)||0);
-    S.rounds.forEach(x=>{ if(x.gameId===g.id) autoLineup(x); }); }
+    S.rounds.forEach(x=>{ if(x.gameId===g.id){x.lineups={};x.winners=[];x.semiWinners=[null,null];} }); }
   else if(act==='gNote'){ g.note=t.value; }
   else if(act==='gOn'){ g.enabled=t.checked; }
   else if(act==='cName'){ c.name=t.value; }

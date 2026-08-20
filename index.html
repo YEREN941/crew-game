@@ -585,6 +585,29 @@
   .board-current-hint{margin-top:7px;color:#7f8da1;font-size:11.5px;line-height:1.45;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .board-current-hint strong{color:#aebbd0;font-weight:800}
 
+  /* 전광판 현재 출전 선수 */
+  .board-lineup-section{border-top:1px solid #273345;background:linear-gradient(180deg,rgba(11,17,26,.58),rgba(10,15,23,.78));padding:18px 20px 20px}
+  .board-lineup-head{display:flex;align-items:center;gap:10px;margin-bottom:13px}
+  .board-lineup-head h3{margin:0;font-size:14px;font-weight:950;color:#eef4fd;letter-spacing:-.2px}
+  .board-lineup-badge{display:inline-flex;align-items:center;padding:4px 9px;border-radius:999px;border:1px solid #2d3d55;background:#101a29;color:#8fa7c9;font-size:10.5px;font-weight:850}
+  .board-lineup-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+  .board-lineup-team{--crew:#5b8cff;min-width:0;border:1px solid color-mix(in srgb,var(--crew) 30%,#293446);border-radius:13px;background:linear-gradient(135deg,color-mix(in srgb,var(--crew) 7%,#101722),#0d141e 72%);padding:11px 12px 12px;position:relative;overflow:hidden}
+  .board-lineup-team::before{content:"";position:absolute;left:0;top:9px;bottom:9px;width:3px;border-radius:0 4px 4px 0;background:var(--crew)}
+  .board-lineup-team-head{display:flex;align-items:center;gap:8px;min-height:28px;padding-left:3px;margin-bottom:9px}
+  .board-lineup-logo{width:58px;height:25px;display:flex;align-items:center;justify-content:center;flex:none}
+  .board-lineup-logo img{display:block;max-width:56px;max-height:23px;width:auto;height:auto;object-fit:contain}
+  .board-lineup-team-name{min-width:0;font-size:13px;font-weight:950;color:#eef3fb;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .board-lineup-count{margin-left:auto;font-size:10.5px;color:#8b9ab0;font-weight:800;white-space:nowrap}
+  .board-lineup-players{display:flex;align-items:flex-start;gap:8px;min-height:58px;overflow:hidden}
+  .board-lineup-player{width:46px;flex:none;text-align:center}
+  .board-lineup-player .av{width:38px;height:38px;margin:0 auto 4px;border-color:color-mix(in srgb,var(--crew) 58%,#506078);box-shadow:0 0 0 2px rgba(255,255,255,.025)}
+  .board-lineup-player-name{display:block;color:#cbd5e4;font-size:9.5px;font-weight:800;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .board-lineup-more{width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex:none;border:1px dashed #3b4b61;background:#121b28;color:#9bacbf;font-size:10.5px;font-weight:900}
+  .board-lineup-empty{display:flex;align-items:center;min-height:52px;color:#718198;font-size:11.5px;font-weight:750;padding-left:3px}
+  .board-lineup-message{padding:11px 13px;border:1px dashed #2b394d;border-radius:11px;color:#76869c;font-size:11.5px;background:#0d141e}
+  @media(max-width:1100px){.board-lineup-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+  @media(max-width:640px){.board-lineup-section{padding:15px}.board-lineup-grid{grid-template-columns:1fr}.board-lineup-players{flex-wrap:wrap;overflow:visible}}
+
   .board-history-card{padding:17px 18px 18px}
   .round-history-head{margin-bottom:13px}
   .round-history-head h2{font-size:16px;font-weight:950}
@@ -1091,6 +1114,7 @@
 
     <div class="card board-current-card">
       <div class="board-current-summary" id="currentRoundSummary"></div>
+      <div class="board-lineup-section" id="currentLineupBoard"></div>
     </div>
 
     <div class="card board-history-card">
@@ -2465,6 +2489,39 @@ function renderBoard(){
         +'<div class="board-current-value">'+(active?esc(MODE_LABEL[active.mode]||active.mode||'미정'):'-')+'</div>'
         +'<div class="board-current-hint"><strong>'+(active?esc(roundVsLabel(active)):'대진 대기')+'</strong></div>'
       +'</div>';
+  }
+
+  const currentLineupBoard=document.getElementById('currentLineupBoard');
+  if(currentLineupBoard){
+    if(!active){
+      currentLineupBoard.innerHTML='<div class="board-lineup-head"><h3>출전 선수</h3></div><div class="board-lineup-message">현재 진행 예정인 라운드가 없습니다.</div>';
+    }else if(!active.gameId||active.stage==='game'||active.stage==='match'){
+      currentLineupBoard.innerHTML='<div class="board-lineup-head"><h3>출전 선수</h3><span class="board-lineup-badge">ROUND '+(activeIdx+1)+'</span></div><div class="board-lineup-message">종목과 대진이 확정되면 출전 선수가 여기에 표시됩니다.</div>';
+    }else{
+      const participantIds=participantsOf(active).filter(crew);
+      const perTeam=activeGame?Number(activeGame.perTeam)||0:0;
+      const teamCards=participantIds.map(cid=>{
+        const c=crew(cid); if(!c)return '';
+        let ids=[];
+        let isAll=false;
+        if(perTeam){ ids=(active.lineups&&active.lineups[cid]?active.lineups[cid]:[]).filter(mid=>c.members.some(m=>m.id===mid)); }
+        else { ids=(c.members||[]).map(m=>m.id); isAll=true; }
+        const maxShown=7;
+        const shown=ids.slice(0,maxShown);
+        const playerHtml=shown.map(mid=>{
+          const m=c.members.find(x=>x.id===mid); if(!m)return '';
+          return '<div class="board-lineup-player">'+avatar(m)+'<span class="board-lineup-player-name">'+esc(m.name)+'</span></div>';
+        }).join('');
+        const more=ids.length>maxShown?'<div class="board-lineup-more">+'+(ids.length-maxShown)+'</div>':'';
+        const empty=!ids.length?'<div class="board-lineup-empty">출전자 선택 대기</div>':'';
+        const logo=c.banner?'<span class="board-lineup-logo"><img src="'+esc(c.banner)+'" alt="'+esc(c.name)+' 배너"></span>':'<span class="dot" style="background:'+c.color+'"></span>';
+        return '<div class="board-lineup-team" style="--crew:'+c.color+'">'
+          +'<div class="board-lineup-team-head">'+logo+'<span class="board-lineup-team-name">'+esc(c.name)+'</span><span class="board-lineup-count">'+(isAll?'전원 '+ids.length+'명':(ids.length?(ids.length+'명 출전'):'미정'))+'</span></div>'
+          +'<div class="board-lineup-players">'+playerHtml+more+empty+'</div></div>';
+      }).join('');
+      currentLineupBoard.innerHTML='<div class="board-lineup-head"><h3>출전 선수</h3><span class="board-lineup-badge">ROUND '+(activeIdx+1)+(activeGame?' · '+esc(activeGame.name):'')+'</span></div>'
+        +(teamCards?'<div class="board-lineup-grid">'+teamCards+'</div>':'<div class="board-lineup-message">대진 참가 크루를 먼저 선택해주세요.</div>');
+    }
   }
 
   const roundCountBadge=document.getElementById('roundCountBadge');

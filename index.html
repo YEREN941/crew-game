@@ -299,6 +299,38 @@
 
   table{width:100%;border-collapse:collapse;font-size:14px}
   th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:middle}
+
+  /* 전광판 라운드 기록 - 경기 기록판형 */
+  .round-history-head{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+  .round-history-head h2{margin:0}
+  .round-count-badge{display:inline-flex;align-items:center;min-height:28px;padding:4px 10px;border-radius:999px;background:#1c2432;border:1px solid #313b4d;color:#c8d3e5;font-size:12px;font-weight:800}
+  .round-history-table{border-collapse:separate;border-spacing:0 9px;margin-top:-3px}
+  .round-history-table thead th{border-bottom:0;padding:3px 13px 5px;color:#8fa1bb;font-size:12px;font-weight:800}
+  .round-history-table tbody td{border-top:1px solid #293446;border-bottom:1px solid #293446;background:#101722;padding:13px 13px}
+  .round-history-table tbody td:first-child{border-left:1px solid #293446;border-radius:13px 0 0 13px;position:relative}
+  .round-history-table tbody td:last-child{border-right:1px solid #293446;border-radius:0 13px 13px 0}
+  .round-history-table tbody tr.completed td{background:linear-gradient(90deg,var(--rh-soft,#11241d),#101923 70%);border-color:color-mix(in srgb,var(--rh-color,#3ddc97) 34%,#293446)}
+  .round-history-table tbody tr.completed td:first-child::before{content:"";position:absolute;left:-1px;top:9px;bottom:9px;width:3px;border-radius:0 4px 4px 0;background:var(--rh-color,#3ddc97)}
+  .round-history-table tbody tr.pending td{background:linear-gradient(90deg,rgba(40,91,160,.08),#101722 68%)}
+  .round-history-table tbody tr:hover td{filter:brightness(1.045)}
+  .rh-round{display:flex;align-items:center;gap:11px;min-width:102px}
+  .rh-num{font-size:24px;line-height:1;font-weight:950;color:#f3f6fb;min-width:24px;text-align:center}
+  .rh-label{font-size:10.5px;font-weight:900;letter-spacing:.65px;color:#6fa9ff;white-space:nowrap}
+  .completed .rh-label{color:var(--rh-color,#3ddc97)}
+  .rh-game{font-size:16px;font-weight:900;color:#edf3fc;letter-spacing:-.25px}
+  .rh-game.pending-game{color:#8191a8;font-weight:750}
+  .rh-match{display:inline-flex;align-items:center;padding:5px 10px;border-radius:8px;background:#1a2330;border:1px solid #242f40;color:#d8e1ef;font-size:12.5px;font-weight:800;line-height:1.15}
+  .rh-win{display:flex;align-items:center;gap:10px;min-height:36px}
+  .rh-win-banner{display:flex;align-items:center;justify-content:center;width:96px;height:34px;flex:none;overflow:hidden}
+  .rh-win-banner img{display:block;max-width:94px;max-height:31px;width:auto;height:auto;object-fit:contain;filter:drop-shadow(0 4px 8px rgba(0,0,0,.3))}
+  .rh-win-name{font-size:15.5px;font-weight:950;white-space:nowrap}
+  .rh-status{display:inline-flex;align-items:center;justify-content:center;padding:5px 10px;border-radius:8px;border:1px solid #2b4569;background:#101d2f;color:#65aaff;font-size:12.5px;font-weight:900}
+  .rh-memo{color:#8292a8;font-size:12.5px}
+  @media(max-width:760px){
+    .round-history-table{min-width:700px}
+    .card:has(.round-history-table){overflow-x:auto}
+    .rh-win-banner{width:80px}.rh-win-banner img{max-width:78px}
+  }
   th{color:var(--muted);font-size:12.5px;font-weight:700}
   td input{padding:6px 9px}
   .used{color:var(--muted);text-decoration:line-through}
@@ -895,8 +927,8 @@
       <div class="sb" id="scoreboard"></div>
     </div>
     <div class="card">
-      <h2>라운드 기록</h2>
-      <table><thead><tr><th style="width:48px">R</th><th>종목</th><th style="width:22%">대진</th><th style="width:150px">승리</th><th style="width:24%">비고</th></tr></thead>
+      <div class="round-history-head"><h2>라운드 기록</h2><span class="round-count-badge" id="roundCountBadge">총 0라운드</span></div>
+      <table class="round-history-table"><thead><tr><th style="width:120px">R</th><th>종목</th><th style="width:23%">대진</th><th style="width:230px">승리</th><th style="width:18%">비고</th></tr></thead>
       <tbody id="progressBody"></tbody></table>
     </div>
   </section>
@@ -2152,6 +2184,8 @@ function renderBoard(){
       +'<div class="pips">'+pips+'</div></div>';
   }).join('');
 
+  const roundCountBadge=document.getElementById('roundCountBadge');
+  if(roundCountBadge) roundCountBadge.textContent='총 '+S.rounds.length+'라운드';
   document.getElementById('progressBody').innerHTML=S.rounds.length?S.rounds.map((r,i)=>{
     const g=game(r.gameId);
     const vs=r.mode==='all'?'전 크루'
@@ -2160,11 +2194,20 @@ function renderBoard(){
           +' / '+(unitsOf(r)[2]||[]).map(crewName).join('·')+' VS '+(unitsOf(r)[3]||[]).map(crewName).join('·')
           +((r.semiWinners||[])[0]&&(r.semiWinners||[])[1]?' → FINAL '+crewName(r.semiWinners[0])+' VS '+crewName(r.semiWinners[1]):''))
         :unitsOf(r).map(u=>u.map(crewName).join('·')).join(' VS '));
-    const win=r.winners.length?r.winners.map(id=>'<b style="color:'+crewColor(id)+'">'+esc(crewName(id))+'</b>').join(' · ')
-      :'<span class="hint">대기</span>';
-    return '<tr><td><b>'+(i+1)+'</b></td><td>'+(g?esc(g.name):'<span class="hint">미정</span>')
-      +'</td><td class="hint">'+esc(vs)+'</td><td>'+win+'</td><td class="hint">'+esc(r.memo||'')+'</td></tr>';
-  }).join(''):'<tr><td colspan="5" class="hint" style="padding:20px">라운드가 없습니다.</td></tr>';
+    const winnerId=r.winners[0]||null,winner=winnerId?crew(winnerId):null,completed=!!winner;
+    const winnerHtml=winner
+      ?'<div class="rh-win">'
+        +(winner.banner?'<span class="rh-win-banner"><img src="'+esc(winner.banner)+'" alt="'+esc(winner.name)+' 배너"></span>':'')
+        +'<span class="rh-win-name" style="color:'+winner.color+'">'+esc(winner.name)+'</span></div>'
+      :'<span class="rh-status">대기</span>';
+    const rowStyle=winner?' style="--rh-color:'+winner.color+';--rh-soft:'+hexToRgba(winner.color,.10)+'"':'';
+    return '<tr class="'+(completed?'completed':'pending')+'"'+rowStyle+'>'
+      +'<td><div class="rh-round"><span class="rh-num">'+(i+1)+'</span><span class="rh-label">ROUND '+(i+1)+'</span></div></td>'
+      +'<td><span class="rh-game'+(g?'':' pending-game')+'">'+(g?esc(g.name):'미정')+'</span></td>'
+      +'<td><span class="rh-match">'+esc(vs||'미정')+'</span></td>'
+      +'<td>'+winnerHtml+'</td>'
+      +'<td><span class="rh-memo">'+esc(r.memo||'-')+'</span></td></tr>';
+  }).join(''):'<tr><td colspan="5" class="hint" style="padding:22px;text-align:center">라운드가 없습니다.</td></tr>';
 }
 
 function avatar(m){

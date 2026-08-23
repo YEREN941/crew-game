@@ -4875,25 +4875,13 @@ renderBroadcastOverlay=function(initial){
 };
 
 
-/* === v8 enhancements: VS overlay, round result timing, quick panel, bottom ticker, final entry showcase === */
+/* === v8 enhancements: VS overlay, round result timing, quick panel, final entry showcase === */
 (function(){
   function installEnhancementStyles(){
     if(document.getElementById('v8EnhancementStyles')) return;
     const style=document.createElement('style');
     style.id='v8EnhancementStyles';
     style.textContent=`
-      .bo-bottom-bar{position:fixed;left:0;right:0;bottom:0;height:40px;display:none;align-items:center;overflow:hidden;z-index:70;
-        background:linear-gradient(90deg,rgba(5,11,20,.95),rgba(11,20,36,.88),rgba(5,11,20,.95));border-top:1px solid rgba(102,130,173,.24)}
-      body.broadcast-overlay-mode .bo-bottom-bar{display:flex}
-      .bo-bottom-label{flex:none;padding:0 14px;height:100%;display:flex;align-items:center;justify-content:center;
-        font-size:12px;font-weight:900;letter-spacing:.16em;color:#88b5ff;background:rgba(17,31,54,.86);border-right:1px solid rgba(102,130,173,.24)}
-      .bo-bottom-marquee{position:relative;flex:1;height:100%;overflow:hidden}
-      .bo-bottom-marquee-inner{position:absolute;left:0;top:50%;display:inline-flex;gap:48px;white-space:nowrap;transform:translateY(-50%);padding-left:100%;
-        font-size:17px;font-weight:900;letter-spacing:-.02em;color:#eef5ff;animation:boTickerMove 22s linear infinite}
-      .bo-bottom-marquee-inner span{opacity:.96}
-      @keyframes boTickerMove{from{transform:translate(0,-50%)}to{transform:translate(-100%,-50%)}}
-      body.broadcast-overlay-mode #boSceneMatch .bo-inner{padding-bottom:54px!important}
-      body.broadcast-overlay-mode #boSceneResult .bo-inner{padding-bottom:54px!important}
       .bo-vs-shell{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:1.5vw;height:100%;padding:.6vh .5vw 0}
       .bo-vs-center{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.8vh}
       .bo-vs-badge{padding:.3em .62em;border-radius:999px;border:1px solid rgba(124,173,255,.42);background:rgba(14,28,48,.92);
@@ -4983,13 +4971,6 @@ renderBroadcastOverlay=function(initial){
 
   function ensureEnhancementDOM(){
     installEnhancementStyles();
-    if(!document.getElementById('boBottomBar')){
-      const bar=document.createElement('div');
-      bar.className='bo-bottom-bar';
-      bar.id='boBottomBar';
-      bar.innerHTML='<div class="bo-bottom-label">LIVE INFO</div><div class="bo-bottom-marquee"><div class="bo-bottom-marquee-inner" id="boBottomTicker"><span>방송 정보를 준비 중입니다.</span><span>방송 정보를 준비 중입니다.</span></div></div>';
-      document.body.appendChild(bar);
-    }
     if(!document.getElementById('entryShowcase')){
       const el=document.createElement('div');
       el.id='entryShowcase';

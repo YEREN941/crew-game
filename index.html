@@ -1040,7 +1040,7 @@
   .bo-result-banner img{display:block;max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;filter:drop-shadow(0 16px 35px rgba(0,0,0,.42)) drop-shadow(0 0 28px color-mix(in srgb,var(--crew) 26%,transparent))}
   .bo-result-name{margin-top:10px;font-size:clamp(30px,3.2vw,54px);font-weight:950;color:#fff;letter-spacing:-1.5px}
   .bo-result-win{margin-top:8px;font-size:clamp(64px,8.5vw,138px);line-height:.86;font-weight:950;color:var(--crew);text-shadow:0 0 40px color-mix(in srgb,var(--crew) 36%,transparent)}
-  .bo-result-score{margin-top:24px;padding:8px 18px;border:1px solid color-mix(in srgb,var(--crew) 42%,#344158);border-radius:999px;background:rgba(8,14,22,.62);font-size:clamp(16px,1.35vw,23px);font-weight:900;color:#dce5f2}
+  .bo-result-score{margin-top:14px;padding:0;border:none;border-radius:0;background:transparent;font-size:clamp(16px,1.35vw,23px);font-weight:900;color:#dce5f2}
   .bo-result-score strong{color:var(--crew);font-size:1.22em}
   .bo-result-strip{position:relative;z-index:3;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;width:min(1180px,86vw);margin:0 auto clamp(26px,4vh,48px)}
   .bo-result-mini{--crew:#5b8cff;display:flex;align-items:center;gap:9px;min-width:0;padding:9px 12px;border:1px solid color-mix(in srgb,var(--crew) 36%,#2d394c);border-radius:10px;background:rgba(8,14,22,.72)}
@@ -3926,7 +3926,7 @@ function boShowRoundResult(r,winner){
   const scene=document.getElementById('boSceneResult');if(scene)scene.style.setProperty('--crew',winner.color||'#5b8cff');
   const rr=document.getElementById('boResultRound');if(rr)rr.innerHTML='<b>ROUND</b> '+boRoundNo(r);
   const ban=document.getElementById('boResultBanner');if(ban)ban.innerHTML=winner.banner?'<img src="'+esc(winner.banner)+'" alt="'+esc(winner.name)+' 배너">':'<div class="bo-crew-banner-fallback">'+esc(winner.name)+'</div>';
-  const sc=document.getElementById('boResultScore');if(sc)sc.innerHTML='현재 총 승점 <strong>'+winsOf(winner.id)+'승</strong>';
+  const sc=document.getElementById('boResultScore');if(sc)sc.innerHTML='현재 총 <strong>'+winsOf(winner.id)+'승</strong>';
   boSetScene(2,false);
   clearTimeout(BO.resultTimer);
   BO.resultTimer=setTimeout(()=>{
@@ -4940,7 +4940,7 @@ renderBroadcastOverlay=function(initial){
       .board-round-result-banner img{display:block;max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;filter:drop-shadow(0 14px 34px rgba(0,0,0,.5)) drop-shadow(0 0 26px color-mix(in srgb,var(--round-color) 30%,transparent))}
       .board-round-result-banner .bo-crew-banner-fallback{font-size:clamp(36px,5vw,68px);font-weight:1000;color:#fff;letter-spacing:-.06em}
       .board-round-result-title{font-size:clamp(58px,8vw,112px);line-height:.9;font-weight:1000;letter-spacing:-.07em;color:var(--round-color);text-shadow:0 0 34px color-mix(in srgb,var(--round-color) 34%,transparent)}
-      .board-round-result-score{margin-top:18px;padding:8px 18px;border-radius:999px;border:1px solid color-mix(in srgb,var(--round-color) 42%,#344158);background:rgba(8,14,22,.68);font-size:clamp(16px,1.7vw,24px);font-weight:900;color:#e7effb}
+      .board-round-result-score{display:none}
       .board-round-result-score strong{color:var(--round-color);font-size:1.16em}
       .board-round-result-game{margin-top:10px;font-size:clamp(12px,1.15vw,16px);font-weight:850;color:#91a5c1}
 
@@ -5061,7 +5061,7 @@ renderBroadcastOverlay=function(initial){
       ?'<img src="'+esc(winner.banner)+'" alt="'+esc(winner.name)+' 배너">'
       :'<div class="bo-crew-banner-fallback">'+esc(winner.name)+'</div>';
     const score=document.getElementById('boardRoundResultScore');
-    if(score)score.innerHTML=esc(winner.name)+' <strong>+1 WIN</strong> · 현재 총 <strong>'+winsOf(winner.id)+'승</strong>';
+    if(score)score.innerHTML='현재 총 <strong>'+winsOf(winner.id)+'승</strong>';
     const g=game(r.gameId);
     const gameEl=document.getElementById('boardRoundResultGame');
     if(gameEl)gameEl.textContent='ROUND '+roundIndex(r)+(g?' · '+g.name:'');
@@ -5233,7 +5233,7 @@ renderBroadcastOverlay=function(initial){
     const scene=document.getElementById('boSceneResult'); if(scene)scene.style.setProperty('--crew',winner.color||'#5b8cff');
     const rr=document.getElementById('boResultRound'); if(rr)rr.innerHTML='<b>ROUND</b> '+boRoundNo(r);
     const ban=document.getElementById('boResultBanner'); if(ban)ban.innerHTML=winner.banner?'<img src="'+esc(winner.banner)+'" alt="'+esc(winner.name)+' 배너">':'<div class="bo-crew-banner-fallback">'+esc(winner.name)+'</div>';
-    const sc=document.getElementById('boResultScore'); if(sc)sc.innerHTML=esc(winner.name)+' <strong>+1 WIN</strong> · 현재 총 <strong>'+winsOf(winner.id)+'승</strong>';
+    const sc=document.getElementById('boResultScore'); if(sc)sc.innerHTML='현재 총 <strong>'+winsOf(winner.id)+'승</strong>';
     boSetScene(2,false);
     clearTimeout(BO.resultTimer);
     BO.resultTimer=setTimeout(function(){

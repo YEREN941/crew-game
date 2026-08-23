@@ -1965,6 +1965,8 @@
     body.broadcast-overlay-mode #boSceneMatch .bo-match-wait-sub{font-size:3.2vw!important}
   }
 
+
+.quick-panel{display:none!important}
 </style>
 </head>
 <body data-active-tab="board">
@@ -4871,6 +4873,506 @@ renderBroadcastOverlay=function(initial){
   if(BO.resultActive)return;
   boShowCycleScene(!!initial);
 };
+
+
+/* === v8 enhancements: VS overlay, round result timing, quick panel, bottom ticker, final entry showcase === */
+(function(){
+  function installEnhancementStyles(){
+    if(document.getElementById('v8EnhancementStyles')) return;
+    const style=document.createElement('style');
+    style.id='v8EnhancementStyles';
+    style.textContent=`
+      .bo-bottom-bar{position:fixed;left:0;right:0;bottom:0;height:40px;display:none;align-items:center;overflow:hidden;z-index:70;
+        background:linear-gradient(90deg,rgba(5,11,20,.95),rgba(11,20,36,.88),rgba(5,11,20,.95));border-top:1px solid rgba(102,130,173,.24)}
+      body.broadcast-overlay-mode .bo-bottom-bar{display:flex}
+      .bo-bottom-label{flex:none;padding:0 14px;height:100%;display:flex;align-items:center;justify-content:center;
+        font-size:12px;font-weight:900;letter-spacing:.16em;color:#88b5ff;background:rgba(17,31,54,.86);border-right:1px solid rgba(102,130,173,.24)}
+      .bo-bottom-marquee{position:relative;flex:1;height:100%;overflow:hidden}
+      .bo-bottom-marquee-inner{position:absolute;left:0;top:50%;display:inline-flex;gap:48px;white-space:nowrap;transform:translateY(-50%);padding-left:100%;
+        font-size:17px;font-weight:900;letter-spacing:-.02em;color:#eef5ff;animation:boTickerMove 22s linear infinite}
+      .bo-bottom-marquee-inner span{opacity:.96}
+      @keyframes boTickerMove{from{transform:translate(0,-50%)}to{transform:translate(-100%,-50%)}}
+      body.broadcast-overlay-mode #boSceneMatch .bo-inner{padding-bottom:54px!important}
+      body.broadcast-overlay-mode #boSceneResult .bo-inner{padding-bottom:54px!important}
+      .bo-vs-shell{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:1.5vw;height:100%;padding:.6vh .5vw 0}
+      .bo-vs-center{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.8vh}
+      .bo-vs-badge{padding:.3em .62em;border-radius:999px;border:1px solid rgba(124,173,255,.42);background:rgba(14,28,48,.92);
+        color:#f8fbff;font-size:clamp(30px,5vw,72px);font-weight:1000;letter-spacing:-.06em;box-shadow:0 0 30px rgba(40,92,190,.24)}
+      .bo-vs-modecopy{font-size:clamp(10px,1.3vw,16px);font-weight:800;color:#8ba8cf;letter-spacing:.08em;text-transform:uppercase}
+      .bo-vs-side,.bo-vs-card{position:relative;height:100%;display:flex;flex-direction:column;justify-content:center;gap:1.2vh;padding:1.2vh 1.2vw;border-radius:22px;
+        background:linear-gradient(180deg,color-mix(in srgb,var(--crew) 13%,rgba(7,11,18,.95)),rgba(7,11,18,.96));
+        border:1px solid color-mix(in srgb,var(--crew) 34%,rgba(75,98,130,.32));box-shadow:inset 0 0 0 1px rgba(255,255,255,.025),0 18px 40px rgba(0,0,0,.28)}
+      .bo-vs-side::before,.bo-vs-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:6px;border-radius:22px 0 0 22px;background:var(--crew)}
+      .bo-vs-banner{height:10vh;min-height:64px;display:flex;align-items:center;justify-content:center;padding:0 1vw}
+      .bo-vs-banner img{max-width:100%;max-height:100%;object-fit:contain;display:block;filter:drop-shadow(0 6px 18px rgba(0,0,0,.36))}
+      .bo-vs-banner .bo-crew-banner-fallback{font-size:clamp(22px,3vw,44px);font-weight:1000;color:#fff;letter-spacing:-.06em;text-align:center}
+      .bo-vs-name{font-size:clamp(18px,2.2vw,34px);font-weight:1000;line-height:1;text-align:center;color:#fff;letter-spacing:-.05em}
+      .bo-vs-subgroup{display:grid;gap:.5vh}
+      .bo-vs-subname{font-size:clamp(10px,1.1vw,15px);font-weight:900;color:#9cb4d4;text-align:center;letter-spacing:.08em}
+      .bo-vs-players{display:flex;justify-content:center;flex-wrap:wrap;gap:10px 14px}
+      .bo-vs-player{width:5.9vw;min-width:58px;max-width:110px;display:flex;flex-direction:column;align-items:center;gap:5px}
+      .bo-vs-player .av{width:4.5vw;height:4.5vw;min-width:46px;min-height:46px;max-width:88px;max-height:88px;border-width:3px;box-shadow:0 8px 18px rgba(0,0,0,.22)}
+      .bo-vs-player-name{font-size:clamp(10px,1vw,14px);font-weight:900;line-height:1;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+      .bo-vs-more{padding:.38em .68em;border-radius:999px;background:rgba(18,28,43,.84);border:1px solid rgba(108,135,174,.28);font-size:clamp(10px,1vw,14px);font-weight:900;color:#dbe8ff}
+      .bo-vs-all-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1.3vh 1vw;height:100%;padding:.2vh .35vw 0}
+      .bo-vs-all-grid .bo-vs-card{justify-content:center}
+      .bo-vs-wait{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:1.5vh;text-align:center}
+      .bo-vs-wait-title{font-size:clamp(30px,5vw,70px);font-weight:1000;letter-spacing:-.07em;color:#f4f8ff}
+      .bo-vs-wait-sub{font-size:clamp(14px,1.8vw,22px);font-weight:800;color:#92a8c4}
+      .bo-vs-wait-banners{display:flex;justify-content:center;align-items:center;gap:1vw;flex-wrap:wrap}
+      .bo-vs-wait-banners .bo-match-wait-banner{width:16vw;min-width:140px;max-width:240px;height:11vh;min-height:72px}
+      .entry-showcase{position:fixed;inset:0;display:none;z-index:95;align-items:center;justify-content:center;padding:28px;background:radial-gradient(circle at 50% 20%,rgba(50,78,120,.34),rgba(4,8,14,.96) 62%)}
+      .entry-showcase.on{display:flex;animation:entryShowcaseFade .22s ease}
+      @keyframes entryShowcaseFade{from{opacity:0;transform:scale(1.02)}to{opacity:1;transform:none}}
+      .entry-showcase-card{width:min(1100px,92vw);border-radius:30px;padding:26px 28px 30px;background:linear-gradient(180deg,color-mix(in srgb,var(--entry-color) 16%,rgba(12,18,28,.96)),rgba(8,12,18,.97));
+        border:1px solid color-mix(in srgb,var(--entry-color) 45%,rgba(112,132,165,.2));box-shadow:0 30px 80px rgba(0,0,0,.46);text-align:center}
+      .entry-showcase-kicker{font-size:16px;font-weight:900;color:#8ab0ff;letter-spacing:.24em;text-transform:uppercase}
+      .entry-showcase-banner{height:78px;margin:10px auto 0;display:flex;align-items:center;justify-content:center}
+      .entry-showcase-banner img{max-width:100%;max-height:100%;object-fit:contain}
+      .entry-showcase-banner .bo-crew-banner-fallback{font-size:52px;font-weight:1000;color:#fff;letter-spacing:-.06em}
+      .entry-showcase-title{margin-top:10px;font-size:34px;font-weight:1000;letter-spacing:-.06em;color:#fff}
+      .entry-showcase-sub{margin-top:6px;font-size:15px;font-weight:800;color:#9bb3cf}
+      .entry-showcase-players{margin-top:24px;display:flex;justify-content:center;flex-wrap:wrap;gap:16px 18px}
+      .entry-showcase-player{width:128px;display:flex;flex-direction:column;align-items:center;gap:8px}
+      .entry-showcase-player .av{width:96px;height:96px;border-width:4px;box-shadow:0 12px 28px rgba(0,0,0,.28)}
+      .entry-showcase-player b{font-size:18px;line-height:1.1;text-align:center;color:#f2f7ff}
+      .broadcast-board{position:relative}
+      .board-round-result{--round-color:#5b8cff;position:absolute;inset:0;z-index:55;display:flex;align-items:center;justify-content:center;
+        opacity:0;visibility:hidden;pointer-events:none;border-radius:18px;overflow:hidden;
+        background:radial-gradient(circle at 50% 42%,color-mix(in srgb,var(--round-color) 24%,rgba(8,14,23,.84)),rgba(4,8,14,.94) 62%);
+        backdrop-filter:blur(9px);transition:opacity .2s ease,visibility 0s linear .22s}
+      .board-round-result.on{opacity:1;visibility:visible;transition:opacity .2s ease,visibility 0s}
+      .board-round-result::before{content:'';position:absolute;inset:-22%;opacity:.22;background:repeating-conic-gradient(from 0deg,color-mix(in srgb,var(--round-color) 13%,transparent) 0 5deg,transparent 5deg 19deg);animation:boardRoundSpin 18s linear infinite}
+      @keyframes boardRoundSpin{to{transform:rotate(360deg)}}
+      .board-round-result-inner{position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;width:min(860px,88%);padding:30px 24px;transform:scale(.94);opacity:0}
+      .board-round-result.on .board-round-result-inner{animation:boardRoundPop .42s cubic-bezier(.18,.9,.22,1.08) .04s forwards}
+      @keyframes boardRoundPop{to{transform:none;opacity:1}}
+      .board-round-result-kicker{font-size:clamp(12px,1.2vw,18px);font-weight:950;letter-spacing:.34em;color:color-mix(in srgb,var(--round-color) 70%,#fff);margin-bottom:18px}
+      .board-round-result-banner{width:min(560px,74%);height:clamp(92px,16vh,160px);display:flex;align-items:center;justify-content:center;margin-bottom:8px}
+      .board-round-result-banner img{display:block;max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;filter:drop-shadow(0 14px 34px rgba(0,0,0,.5)) drop-shadow(0 0 26px color-mix(in srgb,var(--round-color) 30%,transparent))}
+      .board-round-result-banner .bo-crew-banner-fallback{font-size:clamp(36px,5vw,68px);font-weight:1000;color:#fff;letter-spacing:-.06em}
+      .board-round-result-title{font-size:clamp(58px,8vw,112px);line-height:.9;font-weight:1000;letter-spacing:-.07em;color:var(--round-color);text-shadow:0 0 34px color-mix(in srgb,var(--round-color) 34%,transparent)}
+      .board-round-result-score{margin-top:18px;padding:8px 18px;border-radius:999px;border:1px solid color-mix(in srgb,var(--round-color) 42%,#344158);background:rgba(8,14,22,.68);font-size:clamp(16px,1.7vw,24px);font-weight:900;color:#e7effb}
+      .board-round-result-score strong{color:var(--round-color);font-size:1.16em}
+      .board-round-result-game{margin-top:10px;font-size:clamp(12px,1.15vw,16px);font-weight:850;color:#91a5c1}
+
+      .quick-panel{position:fixed;right:18px;bottom:18px;z-index:80;width:min(320px,calc(100vw - 28px));display:none;background:rgba(11,16,24,.96);
+        border:1px solid rgba(78,96,123,.45);border-radius:18px;padding:14px 14px 12px;box-shadow:0 24px 60px rgba(0,0,0,.36);backdrop-filter:blur(10px)}
+      .quick-panel.on{display:block}
+      .quick-panel h3{margin:0 0 6px;font-size:16px;font-weight:1000;letter-spacing:-.03em}
+      .quick-panel .hintline{font-size:12px;color:#91a3bd;margin-bottom:11px}
+      .quick-panel-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+      .quick-panel-grid button{width:100%;padding:10px 10px;font-size:13px;font-weight:900}
+      .quick-panel-status{margin-top:10px;padding:8px 10px;border-radius:12px;background:#111927;border:1px solid rgba(75,92,117,.45);font-size:12px;color:#c8d6eb}
+      .quick-winner-chooser{display:none;margin-top:10px;padding-top:10px;border-top:1px solid rgba(75,92,117,.28)}
+      .quick-winner-chooser.on{display:block}
+      .quick-winner-chooser b{display:block;margin-bottom:8px;font-size:12px;color:#9cb2cf}
+      .quick-winner-list{display:grid;grid-template-columns:1fr;gap:7px}
+      .quick-winner-list button{justify-content:flex-start;text-align:left;padding:9px 11px}
+      @media (max-width:900px){
+        .bo-vs-all-grid{grid-template-columns:1fr;grid-auto-rows:minmax(0,1fr)}
+        .bo-vs-shell{grid-template-columns:1fr;grid-template-rows:auto auto auto}
+        .bo-vs-center{order:-1}
+        .bo-vs-player{width:80px}
+        .bo-vs-player .av{width:58px;height:58px}
+        .quick-panel{right:12px;left:12px;width:auto}
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  function ensureEnhancementDOM(){
+    installEnhancementStyles();
+    if(!document.getElementById('boBottomBar')){
+      const bar=document.createElement('div');
+      bar.className='bo-bottom-bar';
+      bar.id='boBottomBar';
+      bar.innerHTML='<div class="bo-bottom-label">LIVE INFO</div><div class="bo-bottom-marquee"><div class="bo-bottom-marquee-inner" id="boBottomTicker"><span>방송 정보를 준비 중입니다.</span><span>방송 정보를 준비 중입니다.</span></div></div>';
+      document.body.appendChild(bar);
+    }
+    if(!document.getElementById('entryShowcase')){
+      const el=document.createElement('div');
+      el.id='entryShowcase';
+      el.className='entry-showcase';
+      el.innerHTML=''
+        +'<div class="entry-showcase-card" id="entryShowcaseCard">'
+        +'<div class="entry-showcase-kicker">FINAL ENTRY</div>'
+        +'<div class="entry-showcase-banner" id="entryShowcaseBanner"></div>'
+        +'<div class="entry-showcase-title" id="entryShowcaseTitle">출전자 확정</div>'
+        +'<div class="entry-showcase-sub" id="entryShowcaseSub">잠시 후 경기 화면으로 전환됩니다.</div>'
+        +'<div class="entry-showcase-players" id="entryShowcasePlayers"></div>'
+        +'</div>';
+      document.body.appendChild(el);
+    }
+    if(!document.getElementById('boardRoundResult')){
+      const board=document.querySelector('#sec-board .broadcast-board');
+      if(board){
+        const el=document.createElement('div');
+        el.id='boardRoundResult';
+        el.className='board-round-result';
+        el.setAttribute('aria-hidden','true');
+        el.innerHTML=''
+          +'<div class="board-round-result-inner">'
+          +'<div class="board-round-result-kicker">ROUND WINNER</div>'
+          +'<div class="board-round-result-banner" id="boardRoundResultBanner"></div>'
+          +'<div class="board-round-result-title">승리</div>'
+          +'<div class="board-round-result-score" id="boardRoundResultScore"></div>'
+          +'<div class="board-round-result-game" id="boardRoundResultGame"></div>'
+          +'</div>';
+        board.appendChild(el);
+      }
+    }
+    /* 관리자용 퀵 컨트롤 패널 제거됨 */
+
+  }
+
+  function activeRound(){ return S.rounds.find(r=>!(r.winners||[]).length) || null; }
+  function roundIndex(r){ return r ? (S.rounds.indexOf(r)+1) : 0; }
+  function gameNameFromRound(r){ const g=r&&r.gameId?game(r.gameId):null; return g?g.name:'종목 미정'; }
+  function uniqueCrewIdsForRound(r){
+    const ids=[];
+    (unitsOf(r)||[]).forEach(unit=>(unit||[]).forEach(cid=>{ if(cid && !ids.includes(cid)) ids.push(cid); }));
+    return ids;
+  }
+  function matchLabelForRound(r){
+    if(!r) return '대진 대기';
+    const us=unitsOf(r)||[];
+    if(r.mode==='all') return S.crews.map(c=>c.name).join(' · ');
+    if(r.mode==='semi'){
+      const sw=r.semiWinners||[];
+      if(sw[0]&&sw[1]) return crewName(sw[0])+' VS '+crewName(sw[1]);
+      if(us.length>=4) return crewName((us[0]||[])[0])+' VS '+crewName((us[1]||[])[0])+' / '+crewName((us[2]||[])[0])+' VS '+crewName((us[3]||[])[0]);
+    }
+    if(us.length===2) return unitName(us[0])+' VS '+unitName(us[1]);
+    return us.map(unitName).filter(Boolean).join(' · ') || '대진 대기';
+  }
+  function scoreSnippetForRound(r){
+    const cids=(r&&r.mode==='all') ? S.crews.map(c=>c.id) : (r?uniqueCrewIdsForRound(r):S.crews.map(c=>c.id));
+    const uniq=[...new Set(cids)].filter(Boolean);
+    return uniq.map(cid=>crewName(cid)+' '+winsOf(cid)+'승').join(' / ');
+  }
+  const BOARD_ROUND_RESULT={initialized:false,lastKey:'',timer:null};
+  function completedResultInfo(){
+    const done=S.rounds.filter(r=>(r.winners||[]).length);
+    const r=done.length?done[done.length-1]:null;
+    if(!r) return {key:'',round:null,winner:null};
+    const wid=(r.winners||[])[0]||null;
+    return {key:r.id+':'+((r.winners||[]).join(',')),round:r,winner:wid?crew(wid):null};
+  }
+  function hideBoardRoundResult(){
+    const el=document.getElementById('boardRoundResult');
+    if(!el)return;
+    el.classList.remove('on');
+    el.setAttribute('aria-hidden','true');
+    if(BOARD_ROUND_RESULT.timer){clearTimeout(BOARD_ROUND_RESULT.timer);BOARD_ROUND_RESULT.timer=null;}
+  }
+  function showBoardRoundResult(r,winner){
+    ensureEnhancementDOM();
+    if(!r||!winner||BO.enabled||document.body.dataset.activeTab!=='board')return;
+    // 최종 우승은 기존 Victory Stage가 우선합니다.
+    const ch=champion();
+    if(ch&&ch.id===winner.id)return;
+    const el=document.getElementById('boardRoundResult');
+    if(!el)return;
+    el.style.setProperty('--round-color',winner.color||'#5b8cff');
+    const banner=document.getElementById('boardRoundResultBanner');
+    if(banner)banner.innerHTML=winner.banner
+      ?'<img src="'+esc(winner.banner)+'" alt="'+esc(winner.name)+' 배너">'
+      :'<div class="bo-crew-banner-fallback">'+esc(winner.name)+'</div>';
+    const score=document.getElementById('boardRoundResultScore');
+    if(score)score.innerHTML=esc(winner.name)+' <strong>+1 WIN</strong> · 현재 총 <strong>'+winsOf(winner.id)+'승</strong>';
+    const g=game(r.gameId);
+    const gameEl=document.getElementById('boardRoundResultGame');
+    if(gameEl)gameEl.textContent='ROUND '+roundIndex(r)+(g?' · '+g.name:'');
+    el.classList.remove('on');
+    void el.offsetWidth;
+    el.classList.add('on');
+    el.setAttribute('aria-hidden','false');
+    clearTimeout(BOARD_ROUND_RESULT.timer);
+    BOARD_ROUND_RESULT.timer=setTimeout(hideBoardRoundResult,3200);
+  }
+  function maybeShowBoardRoundResult(){
+    const info=completedResultInfo();
+    if(!BOARD_ROUND_RESULT.initialized){
+      BOARD_ROUND_RESULT.initialized=true;
+      BOARD_ROUND_RESULT.lastKey=info.key;
+      return;
+    }
+    if(!info.key){
+      BOARD_ROUND_RESULT.lastKey='';
+      hideBoardRoundResult();
+      return;
+    }
+    if(info.key!==BOARD_ROUND_RESULT.lastKey){
+      BOARD_ROUND_RESULT.lastKey=info.key;
+      showBoardRoundResult(info.round,info.winner);
+    }
+  }
+
+  function updateBottomTicker(){
+    ensureEnhancementDOM();
+    const el=document.getElementById('boBottomTicker'); if(!el) return;
+    const r=activeRound();
+    const text='ROUND '+(r?roundIndex(r):'-')+' · '+gameNameFromRound(r)+' · '+matchLabelForRound(r)+' · '+scoreSnippetForRound(r);
+    el.innerHTML='<span>'+esc(text)+'</span><span>'+esc(text)+'</span>';
+  }
+
+  function entryMembersHTML(members){
+    return (members||[]).map(m=>'<div class="entry-showcase-player">'+avatar(m)+'<b>'+esc(m.name)+'</b></div>').join('');
+  }
+  let entryTimer=null;
+  function showEntryShowcaseData(data){
+    ensureEnhancementDOM();
+    const root=document.getElementById('entryShowcase');
+    const card=document.getElementById('entryShowcaseCard');
+    const banner=document.getElementById('entryShowcaseBanner');
+    const title=document.getElementById('entryShowcaseTitle');
+    const sub=document.getElementById('entryShowcaseSub');
+    const players=document.getElementById('entryShowcasePlayers');
+    if(!root||!card||!banner||!players) return;
+    card.style.setProperty('--entry-color',(data.crew&&data.crew.color)||'#5b8cff');
+    banner.innerHTML=(data.crew&&data.crew.banner)
+      ?'<img src="'+esc(data.crew.banner)+'" alt="'+esc(data.crew.name||'크루')+' 배너">'
+      :'<div class="bo-crew-banner-fallback">'+esc((data.crew&&data.crew.name)||'크루')+'</div>';
+    title.textContent=(data.crew&&data.crew.name?data.crew.name+' 엔트리 확정':'출전자 확정');
+    sub.textContent=(data.gameName?data.gameName+' · ':'')+((data.members||[]).length)+'명 출전';
+    players.innerHTML=entryMembersHTML(data.members||[]);
+    root.classList.add('on');
+    clearTimeout(entryTimer);
+    entryTimer=setTimeout(()=>root.classList.remove('on'),3000);
+  }
+  function showEntryShowcaseForCrew(r,cid){
+    const c=crew(cid); if(!c||!r) return;
+    const ids=((r.lineups||{})[cid])||[];
+    const members=ids.map(mid=>c.members.find(m=>m.id===mid)).filter(Boolean);
+    if(!members.length) return;
+    const g=game(r.gameId);
+    const payload={crew:{id:c.id,name:c.name,color:c.color,banner:c.banner||null},members:members.map(m=>({id:m.id,name:m.name,photo:m.photo||null})),gameName:g?g.name:''};
+    showEntryShowcaseData(payload);
+    sendDraw({kind:'entry',phase:'show',crew:payload.crew,members:payload.members,gameName:payload.gameName});
+  }
+  function liveEntry(p){ if(p&&p.phase==='show') showEntryShowcaseData(p); }
+
+  function boUnitBannerHTML(unit){
+    unit=(unit||[]).filter(crew);
+    if(unit.length===1){
+      const c=crew(unit[0]);
+      if(!c) return '<div class="bo-vs-banner"><div class="bo-crew-banner-fallback">?</div></div>';
+      return '<div class="bo-vs-banner">'+(c.banner?'<img src="'+esc(c.banner)+'" alt="'+esc(c.name)+' 배너">':'<div class="bo-crew-banner-fallback">'+esc(c.name)+'</div>')+'</div>'
+        +'<div class="bo-vs-name">'+esc(c.name)+'</div>';
+    }
+    return '<div class="bo-vs-banner"><div class="bo-crew-banner-fallback">'+esc(unit.map(crewName).join(' · '))+'</div></div>';
+  }
+  function boPlayersMiniHTML(c,ids,isAll){
+    ids=(ids||[]).filter(Boolean);
+    if(!c) return '';
+    if(!ids.length) return '<div class="bo-lineup-wait">'+(isAll?'전원 참여':'출전자 추첨 대기')+'</div>';
+    const shown=ids.slice(0,4);
+    const items=shown.map(mid=>{ const m=(c.members||[]).find(x=>x.id===mid); return m?('<div class="bo-vs-player">'+avatar(m)+'<div class="bo-vs-player-name">'+esc(m.name)+'</div></div>'):''; }).join('');
+    const more=ids.length>4?'<div class="bo-vs-more">+'+(ids.length-4)+'</div>':'';
+    return '<div class="bo-vs-players">'+items+more+'</div>';
+  }
+  function boUnitPlayersHTML(r,unit,perTeam){
+    unit=(unit||[]).filter(crew);
+    if(!unit.length) return '<div class="bo-lineup-wait">출전자 추첨 대기</div>';
+    const isAll=perTeam===0;
+    if(unit.length===1){
+      const c=crew(unit[0]);
+      const ids=isAll?(c.members||[]).map(m=>m.id):(((r.lineups||{})[c.id])||[]);
+      return boPlayersMiniHTML(c,ids,isAll);
+    }
+    return unit.map(cid=>{
+      const c=crew(cid); if(!c) return '';
+      const ids=isAll?(c.members||[]).map(m=>m.id):(((r.lineups||{})[cid])||[]);
+      return '<div class="bo-vs-subgroup"><div class="bo-vs-subname">'+esc(c.name)+'</div>'+boPlayersMiniHTML(c,ids,isAll)+'</div>';
+    }).join('');
+  }
+  function boVSCardHTML(r,unit,perTeam){
+    const main=crew((unit||[])[0])||{color:'#5b8cff'};
+    return '<div class="bo-vs-card" style="--crew:'+esc(main.color||'#5b8cff')+'">'+boUnitBannerHTML(unit)+boUnitPlayersHTML(r,unit,perTeam)+'</div>';
+  }
+
+  boRenderMatch=function(active){
+    ensureEnhancementDOM();
+    const title='크루 '+S.crews.length+'파전';
+    const t2=document.getElementById('boTitle2'); if(t2)t2.textContent=title;
+    const r2=document.getElementById('boRound2'); if(r2)r2.innerHTML='<b>ROUND</b> '+(active?boRoundNo(active):'-');
+    const g=active?game(active.gameId):null;
+    const gt=document.getElementById('boGameTitle'); if(gt)gt.textContent=g?g.name:'종목 미정';
+    const gm=document.getElementById('boGameMode'); if(gm)gm.textContent=active?boModeLabel(active):'대진 대기';
+    const grid=document.getElementById('boMatchGrid'); if(!grid) return;
+
+    if(!active||!g){
+      grid.className='bo-match-grid cols-1 waiting';
+      grid.innerHTML=''
+        +'<div class="bo-vs-wait">'
+        +'<div class="bo-vs-wait-title">종목 추첨 대기</div>'
+        +'<div class="bo-vs-wait-sub">다음 라운드 종목을 추첨하는 중입니다.</div>'
+        +'<div class="bo-vs-wait-banners">'+S.crews.map(boWaitBannerHTML).join('')+'</div>'
+        +'</div>';
+      return;
+    }
+
+    const perTeam=Number(g.perTeam)||0;
+    let us=unitsOf(active) || [];
+    if(active.mode==='semi'){
+      const sw=active.semiWinners||[];
+      if(sw[0]&&sw[1]) us=[[sw[0]],[sw[1]]];
+    }
+    us=us.filter(u=>(u||[]).length);
+
+    if(active.mode==='all' || us.length>=3){
+      grid.className='bo-match-grid cols-1';
+      grid.innerHTML='<div class="bo-vs-all-grid">'+(us.length?us.map(unit=>boVSCardHTML(active,unit,perTeam)).join(''):'<div class="bo-lineup-wait">대진 구성을 기다리고 있습니다.</div>')+'</div>';
+      return;
+    }
+
+    if(us.length===2){
+      const left=us[0], right=us[1];
+      const lc=crew(left[0])||{color:'#5b8cff'};
+      const rc=crew(right[0])||{color:'#5b8cff'};
+      grid.className='bo-match-grid cols-1';
+      grid.innerHTML=''
+        +'<div class="bo-vs-shell">'
+        +'<div class="bo-vs-side" style="--crew:'+esc(lc.color||'#5b8cff')+'">'+boUnitBannerHTML(left)+boUnitPlayersHTML(active,left,perTeam)+'</div>'
+        +'<div class="bo-vs-center"><div class="bo-vs-badge">VS</div><div class="bo-vs-modecopy">'+esc(boModeLabel(active))+'</div></div>'
+        +'<div class="bo-vs-side" style="--crew:'+esc(rc.color||'#5b8cff')+'">'+boUnitBannerHTML(right)+boUnitPlayersHTML(active,right,perTeam)+'</div>'
+        +'</div>';
+      return;
+    }
+
+    grid.className='bo-match-grid cols-1';
+    grid.innerHTML='<div class="bo-lineup-wait">대진 구성을 기다리고 있습니다.</div>';
+  };
+
+  boShowRoundResult=function(r,winner){
+    if(!BO.enabled||!r||!winner)return;
+    BO.resultActive=true;
+    boPauseSceneCycle();
+    const scene=document.getElementById('boSceneResult'); if(scene)scene.style.setProperty('--crew',winner.color||'#5b8cff');
+    const rr=document.getElementById('boResultRound'); if(rr)rr.innerHTML='<b>ROUND</b> '+boRoundNo(r);
+    const ban=document.getElementById('boResultBanner'); if(ban)ban.innerHTML=winner.banner?'<img src="'+esc(winner.banner)+'" alt="'+esc(winner.name)+' 배너">':'<div class="bo-crew-banner-fallback">'+esc(winner.name)+'</div>';
+    const sc=document.getElementById('boResultScore'); if(sc)sc.innerHTML=esc(winner.name)+' <strong>+1 WIN</strong> · 현재 총 <strong>'+winsOf(winner.id)+'승</strong>';
+    boSetScene(2,false);
+    clearTimeout(BO.resultTimer);
+    BO.resultTimer=setTimeout(function(){
+      BO.resultActive=false;
+      renderBroadcastOverlay(false);
+      boResumeSceneCycle(true);
+    },3200);
+  };
+
+  renderBroadcastOverlay=function(initial){
+    if(!BO.enabled)return;
+    ensureEnhancementDOM();
+    const active=activeRound();
+    boRenderStandings(active); boRenderMatch(active); boRenderResultStrip(); updateBottomTicker();
+    const completed=S.rounds.filter(r=>(r.winners||[]).length);
+    const last=completed.length?completed[completed.length-1]:null;
+    const resultKey=last? (last.id+':'+((last.winners||[]).join(','))) : '';
+    if(!BO.initialized){ BO.initialized=true; BO.lastCompletedRoundId=last?last.id:null; BO.lastResultKey=resultKey; }
+    else if(resultKey && resultKey!==BO.lastResultKey){
+      BO.lastCompletedRoundId=last?last.id:null; BO.lastResultKey=resultKey;
+      const w=crew((last.winners||[])[0]); if(w){ boShowRoundResult(last,w); return; }
+    }else if(!resultKey){ BO.lastCompletedRoundId=null; BO.lastResultKey=''; }
+    if(BO.resultActive) return;
+    boShowCycleScene(!!initial);
+  };
+
+  handleLiveDraw=function(p){
+    if(!p||!p.kind)return;
+    if(p.kind==='entry'){ liveEntry(p); return; }
+    if(typeof BO!=='undefined'&&BO.enabled)return;
+    if(LIVE.dismissed&&p.phase!=='open')return;
+    if(p.phase==='open')LIVE.dismissed=false;
+    if(p.kind==='wheel')liveWheel(p);
+    else if(p.kind==='game')liveGame(p);
+    else if(p.kind==='player')livePlayer(p);
+  };
+
+  revealNextPlayer=function(){
+    if(PR.spinning||PR.index>=PR.selected.length)return;
+    const m=prMember(PR.selected[PR.index]);if(!m)return;
+    sendDraw({kind:'player',phase:'reveal',index:PR.index,total:PR.selected.length,member:{id:m.id,name:m.name,photo:m.photo||null}});
+    playRevealAnimation(m,PR.index,PR.selected.length,function(){
+      PR.index++;
+      const done=PR.index>=PR.selected.length;
+      if(done){
+        const r=S.rounds.find(x=>x.id===PR.roundId);
+        if(r){ r.lineups[PR.cid]=PR.selected.slice(); PR.applied=true; render(); showEntryShowcaseForCrew(r,PR.cid); }
+        document.getElementById('prStatus').textContent='출전자 '+PR.selected.length+'명 확정';
+        document.getElementById('prDoneBtn').style.display='';
+        document.getElementById('prCancelBtn').style.display='none';
+        toast((crew(PR.cid)||{}).name+' 출전자 '+PR.selected.length+'명 확정');
+      }else{
+        document.getElementById('prStatus').textContent=(PR.index+1)+'번째 선수 대기';
+        if(PR.auto){ prLater(revealNextPlayer,850); }
+        else{
+          const b=document.getElementById('prNextBtn');
+          b.textContent='다음 선수 추첨 ('+(PR.index+1)+'/'+PR.selected.length+')';
+          b.style.display='';
+          document.getElementById('prCancelBtn').style.display='';
+          document.getElementById('prCancelBtn').textContent='추첨 취소';
+        }
+      }
+    });
+  };
+
+  function ensureActiveRound(){
+    let r=activeRound();
+    if(r) return r;
+    if(champion()){ toast('이미 우승이 확정되었습니다.'); return null; }
+    S.rounds.push(newRound('all')); render();
+    return activeRound();
+  }
+  function nextLineupTarget(r){
+    if(!r) return null;
+    const g=r.gameId?game(r.gameId):null;
+    if(!g) return null;
+    if((Number(g.perTeam)||0)===0) return null;
+    const ids=uniqueCrewIdsForRound(r);
+    return ids.find(cid=>!((r.lineups||{})[cid]||[]).length) || null;
+  }
+  function buildWinnerChoices(){
+    const chooser=document.getElementById('qcWinnerChooser');
+    const list=document.getElementById('qcWinnerList');
+    if(!chooser||!list) return;
+    const r=activeRound();
+    if(!r){ chooser.classList.remove('on'); list.innerHTML=''; return; }
+    const buttons=[];
+    if(r.mode==='semi' && !((r.semiWinners||[])[0] && (r.semiWinners||[])[1])){
+      const us=unitsOf(r)||[];
+      [[0,0],[0,1],[1,2],[1,3]].forEach(function(pair){
+        const match=pair[0], idx=pair[1], unit=us[idx]||[], cid=(unit[0]||null); if(!cid) return;
+        buttons.push('<button type="button" data-qwinner="semi" data-match="'+match+'" data-cid="'+cid+'">'+esc('Match '+(match+1)+' · '+crewName(cid))+'</button>');
+      });
+    }else if(r.mode==='semi' && (r.semiWinners||[])[0] && (r.semiWinners||[])[1]){
+      const a=(r.semiWinners||[])[0], b=(r.semiWinners||[])[1];
+      [a,b].filter(Boolean).forEach(function(cid){ buttons.push('<button type="button" data-qwinner="final" data-cid="'+cid+'">'+esc(crewName(cid))+'</button>'); });
+    }else{
+      (unitsOf(r)||[]).forEach(function(unit,idx){
+        if(!(unit||[]).length) return;
+        buttons.push('<button type="button" data-qwinner="round" data-idx="'+idx+'">'+esc(unitName(unit))+'</button>');
+      });
+    }
+    list.innerHTML=buttons.join('') || '<button type="button" disabled>선택 가능한 승자가 없습니다.</button>';
+    chooser.classList.toggle('on',!!buttons.length);
+  }
+
+
+  document.addEventListener('click',function(e){
+    const tabBtn=e.target&&e.target.closest&&e.target.closest('#tabs button[data-tab]');
+    if(tabBtn&&tabBtn.dataset.tab!=='board') hideBoardRoundResult();
+    const id=e.target&&e.target.id;
+
+  });
+
+  const _render=render;
+  render=function(initial){ const v=_render(initial); try{ updateBottomTicker(); maybeShowBoardRoundResult(); }catch(err){ console.error(err); } return v; };
+
+  const _initApp=initApp;
+  initApp=function(){ ensureEnhancementDOM(); return _initApp.apply(this,arguments); };
+})();
 
 initApp();
 </script>

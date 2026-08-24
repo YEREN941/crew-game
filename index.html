@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>크루 대항 종합게임</title>
-<meta name="app-build" content="manual-appearance-limits-v22-20260825">
+<meta name="app-build" content="skip-all-participant-consecutive-v23-20260825">
 <meta name="description" content="크루 대항 종합게임 - 대진 룰렛, 종목 슬롯머신, 출전자 추첨, 실시간 전광판">
 <meta property="og:title" content="크루 대항 종합게임">
 <meta property="og:description" content="대진 룰렛 · 종목 슬롯머신 · 출전자 추첨 · 실시간 전광판">
@@ -2135,7 +2135,7 @@ body.broadcast-overlay-mode #boSceneMatch .bo-lineup-wait{
 
 
 
-  /* v22 · 출전 횟수 현황 / 수동 룰렛 제한 */
+  /* v23 · 출전 횟수 현황 / 수동 룰렛 제한 / 전원참가 사이 일반종목 중복 방지 */
   .appearance-left{display:inline-flex;align-items:center;justify-content:center;gap:4px;margin-top:3px;padding:3px 6px;border-radius:999px;background:#11251b;border:1px solid #245d3d;color:#7ee2a8;font-size:10px;font-weight:900;white-space:nowrap;line-height:1.2}
   .appearance-left span,.appearance-left b{opacity:.72;font-size:9px}
   .appearance-left.zero{background:#2a2110;border-color:#6c5420;color:#f2cc68}
@@ -2146,7 +2146,7 @@ body.broadcast-overlay-mode #boSceneMatch .bo-lineup-wait{
   .crew-limit-control{display:inline-flex;align-items:center;gap:6px;padding:5px 8px;border:1px solid #354158;border-radius:8px;background:#101620;color:#aab8ca;font-size:11px;font-weight:850;white-space:nowrap}
   .crew-limit-control input{width:55px!important;padding:4px 5px!important;text-align:center;font-size:11px!important}
 </style>
-<!-- app-build: manual-appearance-limits-v22-20260825 -->
+<!-- app-build: skip-all-participant-consecutive-v23-20260825 -->
 </head>
 <body data-active-tab="board">
 
@@ -3085,9 +3085,10 @@ function appearCount(cid,mid){
 
 /*
  * 선수 자동 추첨 규칙
- * 1) 일반 종목에서 직전 라운드에 출전한 선수는 이번 라운드 자동 추첨에서 완전 제외합니다.
- *    → 단, 팀당 인원 0인 "전원 참여" 종목은 연속 출전 제한에서 제외합니다.
- *       전원 참여 종목 직후에도 모든 선수가 다음 라운드 후보가 될 수 있습니다.
+ * 1) 일반 종목끼리는 직전 "일반 종목" 출전 선수가 다음 일반 종목 자동 추첨에서 완전 제외됩니다.
+ *    → 팀당 인원 0인 "전원 참여" 종목은 연속 출전 판정의 연결고리에서 건너뜁니다.
+ *       예: R1 일반 → R2 폴가이즈(전원) → R3 일반이면 R1과 R3은 선수 중복 금지,
+ *           폴가이즈(R2)와 R3의 선수 중복은 허용됩니다.
  * 2) 크루별 기본 최대 출전 횟수는 관리자 화면에서 0~99회 범위로 직접 지정합니다.
  * 3) 선수별 개별 최대 출전 횟수도 직접 지정할 수 있으며, 비워두면 크루 기본값을 따릅니다.
  *    - 현재 기본 규칙은 일반 크루 2회, 조적단 3회, 단 조디악은 선수별 2회입니다.
@@ -3120,13 +3121,21 @@ function roundIsAllParticipant(r){
   const g=r&&r.gameId?game(r.gameId):null;
   return !!(g&&Number(g.perTeam)===0);
 }
-function memberWasInPreviousRound(r,cid,mid){
+function previousNonAllParticipantRound(r){
   const idx=S.rounds.findIndex(x=>x.id===r.id);
-  if(idx<=0)return false;
-  const rr=S.rounds[idx-1];
-  // 전원 참여 종목은 강제 참가 성격이므로 연속 출전 제한의 연결고리에서 제외합니다.
-  // 즉, 전원 참여 종목 직후 라운드에서는 모든 선수가 다시 후보가 될 수 있습니다.
-  if(roundIsAllParticipant(rr))return false;
+  if(idx<=0)return null;
+  // 전원 참여 종목(폴가이즈 등)은 연속 출전 비교에서 건너뛰고
+  // 가장 가까운 이전 일반 종목을 찾습니다.
+  for(let i=idx-1;i>=0;i--){
+    const rr=S.rounds[i];
+    if(roundIsAllParticipant(rr))continue;
+    return rr;
+  }
+  return null;
+}
+function memberWasInPreviousRound(r,cid,mid){
+  const rr=previousNonAllParticipantRound(r);
+  if(!rr)return false;
   const lineup=rr&&rr.lineups&&rr.lineups[cid];
   return Array.isArray(lineup)&&lineup.includes(mid);
 }
@@ -3162,7 +3171,7 @@ function memberAppearanceStatus(cid,mid){
 }
 function memberAutoEligible(r,cid,mid){
   if(!r)return false;
-  if(memberWasInPreviousRound(r,cid,mid))return false; // 일반 종목끼리는 연속 출전 금지, 전원 참여 종목 직후는 예외
+  if(memberWasInPreviousRound(r,cid,mid))return false; // 전원 참여 종목을 건너뛴 직전 일반 종목과는 중복 출전 금지
   if(roundAppearanceLimitException(r))return true;   // 현재 종목은 누적 출전 상한 예외
   return memberPastAppearanceCount(r,cid,mid)<memberAutoAppearanceLimit(cid,mid);
 }
@@ -4859,7 +4868,7 @@ function renderGames(){
     '<tr><td><input data-act="gName" data-id="'+g.id+'" value="'+esc(g.name)+'" class="'+(used.includes(g.id)?'used':'')+'" style="font-weight:600"></td>'
     +'<td><input type="number" min="0" max="30" data-act="gNum" data-id="'+g.id+'" value="'+(g.perTeam||0)+'"></td>'
     +'<td><input data-act="gNote" data-id="'+g.id+'" value="'+esc(g.note)+'" placeholder="예: 점수 합치기"></td>'
-    +'<td style="text-align:center"><input type="checkbox" data-act="gAppearanceException" data-id="'+g.id+'" '+(g.appearanceLimitException?'checked':'')+' title="이 종목 출전은 선수당 2회/3회 제한에 포함하지 않습니다. 단, 팀당 인원 0(전원 참여) 종목은 연속 출전 제한에서도 제외됩니다." style="width:18px;height:18px"></td>'
+    +'<td style="text-align:center"><input type="checkbox" data-act="gAppearanceException" data-id="'+g.id+'" '+(g.appearanceLimitException?'checked':'')+' title="이 종목 출전은 선수별 최대 출전 횟수에 포함하지 않습니다. 팀당 인원 0(전원 참여) 종목은 연속 출전 비교에서 건너뛰며, 다음 일반 종목은 그 이전 일반 종목과 중복되지 않게 추첨됩니다." style="width:18px;height:18px"></td>'
     +'<td style="text-align:center">'+(gameHasFixedSetup(g)?'<span class="lineup-lock-badge">🔒 저장됨</span> <button class="ghost sm noprint" data-act="clearGameFixedSetup" data-id="'+g.id+'">해제</button>':'<span class="hint">미설정</span>')+'</td>'
     +'<td style="text-align:center"><input type="checkbox" data-act="gOn" data-id="'+g.id+'" '+(g.enabled?'checked':'')+' style="width:18px;height:18px"></td>'
     +'<td><button class="danger sm noprint" data-act="delGame" data-id="'+g.id+'">삭제</button></td></tr>').join('');

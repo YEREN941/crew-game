@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>크루 대항 종합게임</title>
-<meta name="app-build" content="consecutive-fallback-compact-count-v25-20260825">
+<meta name="app-build" content="auto-appearance-expansion-v27-20260825">
 <meta name="description" content="크루 대항 종합게임 - 대진 룰렛, 종목 슬롯머신, 출전자 추첨, 실시간 전광판">
 <meta property="og:title" content="크루 대항 종합게임">
 <meta property="og:description" content="대진 룰렛 · 종목 슬롯머신 · 출전자 추첨 · 실시간 전광판">
@@ -2142,13 +2142,14 @@ body.broadcast-overlay-mode #boSceneMatch .bo-lineup-wait{
   .appearance-left span,.appearance-left b{opacity:.72;font-size:9px}
   .appearance-left.zero{background:#2a2110;border-color:#6c5420;color:#f2cc68}
   .appearance-left.over{background:#321719;border-color:#803036;color:#ff9298}
+  .auto-limit-badge{display:inline-flex;align-items:center;padding:2px 6px;border-radius:999px;border:1px solid #395578;background:#132238;color:#9fc4ff;font-size:9.5px;font-weight:950;line-height:1.2;white-space:nowrap;vertical-align:middle}
   .member-limit-row{display:flex;align-items:center;gap:6px;min-width:0;flex-wrap:wrap}
   .member-limit-row label{display:inline-flex;align-items:center;gap:5px;color:#9cabc0;font-size:10px;font-weight:800;white-space:nowrap}
   .member-limit-row input{width:58px!important;padding:4px 6px!important;font-size:11px!important;text-align:center}
   .crew-limit-control{display:inline-flex;align-items:center;gap:6px;padding:5px 8px;border:1px solid #354158;border-radius:8px;background:#101620;color:#aab8ca;font-size:11px;font-weight:850;white-space:nowrap}
   .crew-limit-control input{width:55px!important;padding:4px 5px!important;text-align:center;font-size:11px!important}
 </style>
-<!-- app-build: consecutive-fallback-compact-count-v25-20260825 -->
+<!-- app-build: auto-appearance-expansion-v27-20260825 -->
 </head>
 <body data-active-tab="board">
 
@@ -2977,7 +2978,7 @@ async function logoutAdmin(){
 
 /* ================= state ================= */
 function defaultState(){
-  const mk=(name,color)=>({id:uid(),name,color,banner:null,appearanceLimit:name==='조적단'?3:2,allowThirdAppearance:name==='조적단',members:referenceMembers(name)});
+  const mk=(name,color)=>({id:uid(),name,color,banner:null,appearanceLimit:name==='조적단'?3:2,appearanceAutoBonus:0,allowThirdAppearance:name==='조적단',members:referenceMembers(name)});
   const crews=[mk('조적단','#5b8cff'),mk('천타버스','#66e0d1'),mk('버인','#f5c451'),mk('진드기','#4fc46b')];
   const G=(name,perTeam,note)=>({id:uid(),name,perTeam,note:note||'',appearanceLimitException:false,fixedSetup:null,enabled:true});
   const games=[G('야추',0,''),G('윷놀이',0,''),G('테일즈러너',0,''),G('테트리스',0,''),G('폴가이즈',0,''),
@@ -3053,6 +3054,8 @@ function migrate(d){
     // 기존 저장본은 3회 허용 체크 상태를 자동 변환해 호환합니다.
     if(c.appearanceLimit===undefined || !Number.isFinite(Number(c.appearanceLimit))) c.appearanceLimit=c.allowThirdAppearance?3:2;
     c.appearanceLimit=Math.max(0,Math.min(99,Math.floor(Number(c.appearanceLimit))));
+    if(c.appearanceAutoBonus===undefined || !Number.isFinite(Number(c.appearanceAutoBonus))) c.appearanceAutoBonus=0;
+    c.appearanceAutoBonus=Math.max(0,Math.min(99,Math.floor(Number(c.appearanceAutoBonus))));
     c.allowThirdAppearance=c.appearanceLimit>=3; // 구버전 호환 필드
     applyReferenceRosterToCrew(c);
     // 서버 행 · JSON 복원처럼 관리자 UI 밖에서 들어온 값은 형식을 강제합니다.
@@ -3209,6 +3212,8 @@ function appearCount(cid,mid){
  *    → 단, 직전 일반 종목 출전자를 제외하고는 필요한 인원을 채울 수 없을 때만
  *       최대 출전 횟수를 넘지 않는 범위에서 직전 일반 종목 출전자도 부족 인원만큼 예외 허용합니다.
  * 2) 크루별/선수별 최대 출전 횟수는 관리자 화면에서 직접 지정합니다.
+ *    → 직전 출전자 예외까지 적용했는데도 필요한 인원이 부족하면 해당 크루 전체의 자동 출전 한도를 +1씩 확장합니다.
+ *    → 자동 확장은 필요한 만큼만 누적되고 대회가 끝날 때까지 유지합니다. 개별/기본 제한 0명은 자동 확장 대상에서 제외합니다.
  * 3) 종목 자체에 저장해 둔 "고정 참가자"는 그 종목을 아직 라운드에 등록하지 않았어도
  *    향후 출전 예약으로 간주하여 룰렛 최대 출전 횟수와 남은 횟수 계산에 미리 포함합니다.
  *    - 해당 고정 종목이 실제 라운드에 들어오면 예약분과 실제 라인업을 중복 계산하지 않습니다.
@@ -3285,7 +3290,12 @@ function crewAutoAppearanceLimit(cid){
   if(Number.isFinite(v)&&v>=0)return Math.min(99,Math.floor(v));
   return c.allowThirdAppearance?3:2; // 구버전 저장본 안전장치
 }
-function memberAutoAppearanceLimit(cid,mid){
+function crewAppearanceAutoBonus(cid){
+  const c=crew(cid);
+  const v=c?Number(c.appearanceAutoBonus):0;
+  return Number.isFinite(v)&&v>0?Math.min(99,Math.floor(v)):0;
+}
+function memberBaseAppearanceLimit(cid,mid){
   const c=crew(cid);
   const m=c&&Array.isArray(c.members)?c.members.find(x=>x.id===mid):null;
   if(m&&m.appearanceLimitOverride!==''&&m.appearanceLimitOverride!=null){
@@ -3293,6 +3303,11 @@ function memberAutoAppearanceLimit(cid,mid){
     if(Number.isFinite(ov)&&ov>=0)return Math.min(99,Math.floor(ov));
   }
   return crewAutoAppearanceLimit(cid);
+}
+function memberAutoAppearanceLimit(cid,mid){
+  const base=memberBaseAppearanceLimit(cid,mid);
+  if(base<=0)return 0; // 0회는 명시적 자동 룰렛 제외이므로 크루 자동 +N에도 살아나지 않습니다.
+  return Math.min(99,base+crewAppearanceAutoBonus(cid));
 }
 function memberPlayedAppearanceTotal(cid,mid){
   let n=0;
@@ -3326,6 +3341,7 @@ function memberAppearanceStatus(cid,mid){
 }
 function memberWithinAppearanceLimit(r,cid,mid){
   if(!r)return false;
+  if(memberBaseAppearanceLimit(cid,mid)<=0)return false; // 0회는 어떤 자동 룰렛에서도 제외
   if(roundAppearanceLimitException(r))return true; // 현재 종목은 누적 출전 상한 예외
   return memberPastAppearanceCount(r,cid,mid)<memberAutoAppearanceLimit(cid,mid);
 }
@@ -3371,10 +3387,35 @@ function fallbackEligibleMemberIds(r,cid){
   const c=crew(cid);if(!c)return [];
   return (c.members||[]).filter(m=>memberWithinAppearanceLimit(r,cid,m.id)&&memberWasInPreviousRound(r,cid,m.id)).map(m=>m.id);
 }
-function eligibleMemberIds(r,cid,k){
+function eligibleMemberIdsNoExpand(r,cid,k){
   const strict=strictEligibleMemberIds(r,cid);
   if(!Number.isFinite(Number(k))||strict.length>=Number(k))return strict;
   return strict.concat(fallbackEligibleMemberIds(r,cid).filter(id=>!strict.includes(id)));
+}
+function ensureCrewAppearanceCapacity(r,cid,k){
+  const c=crew(cid),need=Math.max(0,Math.floor(Number(k)||0));
+  if(!r||!c||!need||roundAppearanceLimitException(r))return 0;
+  const selectable=(c.members||[]).filter(m=>memberBaseAppearanceLimit(cid,m.id)>0);
+  if(selectable.length<need)return 0; // 인원 자체가 부족하거나 0회 제외 선수가 많으면 자동 확장으로 해결할 수 없음
+
+  let before=eligibleMemberIdsNoExpand(r,cid,need);
+  if(before.length>=need)return 0;
+
+  let added=0;
+  while(before.length<need&&crewAppearanceAutoBonus(cid)<99){
+    c.appearanceAutoBonus=crewAppearanceAutoBonus(cid)+1;
+    added++;
+    before=eligibleMemberIdsNoExpand(r,cid,need);
+  }
+  if(added){
+    save();
+    toast(c.name+' 출전 가능 인원이 부족해 자동 출전 한도를 +'+added+'회 확장했습니다. · 현재 자동 +'+crewAppearanceAutoBonus(cid));
+  }
+  return added;
+}
+function eligibleMemberIds(r,cid,k){
+  if(Number.isFinite(Number(k)))ensureCrewAppearanceCapacity(r,cid,Number(k));
+  return eligibleMemberIdsNoExpand(r,cid,k);
 }
 function drawWeightedPool(pool,count){
   pool=(pool||[]).slice();
@@ -3394,6 +3435,7 @@ function drawWeightedPool(pool,count){
 }
 function weightedMemberIds(r,cid,k){
   const c=crew(cid); if(!c) return [];
+  ensureCrewAppearanceCapacity(r,cid,k);
   const strictPool=(c.members||[])
     .map(m=>({id:m.id,w:recentMemberWeight(r,cid,m.id)}))
     .filter(x=>x.w>0);
@@ -3846,8 +3888,9 @@ function openPlayerReveal(r,cid,auto){
   const c=crew(cid);
   if(!c||!c.members.length){toast('선수 명단이 비어 있습니다.');return;}
   if(c.members.length<k){toast(c.name+'의 선수 수가 팀당 인원보다 적습니다.');return;}
+  ensureCrewAppearanceCapacity(r,cid,k);
   const strictEligible=strictEligibleMemberIds(r,cid);
-  const eligible=eligibleMemberIds(r,cid,k);
+  const eligible=eligibleMemberIdsNoExpand(r,cid,k);
   if(eligible.length<k){
     const limit=crewAutoAppearanceLimit(cid);
     const rule=roundAppearanceLimitException(r)?'출전 횟수 예외 종목':'선수당 최대 '+limit+'회';
@@ -5117,7 +5160,7 @@ function renderCrews(){
       const wins=winsOf(c.id);
       return '<div class="crew-roster-row" style="--crew:'+esc(c.color||'#5b8cff')+'">'
         +'<div class="crew-roster-banner">'+banner
-          +'<div class="crew-roster-meta"><strong>'+esc(c.name)+'</strong><span>·</span><span>'+c.members.length+'명</span><span>·</span><span class="crew-win">'+wins+'승</span></div>'
+          +'<div class="crew-roster-meta"><strong>'+esc(c.name)+'</strong>'+(crewAppearanceAutoBonus(c.id)?'<span class="auto-limit-badge">자동 +'+crewAppearanceAutoBonus(c.id)+'</span>':'')+'<span>·</span><span>'+c.members.length+'명</span><span>·</span><span class="crew-win">'+wins+'승</span></div>'
         +'</div>'
         +'<div class="crew-roster-players">'+(players||'<div class="crew-roster-empty">등록된 선수가 없습니다.</div>')+'</div>'
       +'</div>';
@@ -5145,6 +5188,7 @@ function renderCrews(){
       +'<input type="color" data-act="cColor" data-id="'+c.id+'" value="'+safeColor(c.color)+'">'
       +'<input class="nm" data-act="cName" data-id="'+c.id+'" value="'+esc(c.name)+'">'
       +'<span class="hint">'+c.members.length+'명 · '+winsOf(c.id)+'승</span>'
+      +(crewAppearanceAutoBonus(c.id)?'<span class="auto-limit-badge" title="룰렛 후보 부족으로 자동 확장된 출전 한도입니다. 관리자 기본값은 변경하지 않습니다.">자동 +'+crewAppearanceAutoBonus(c.id)+'</span>':'')
       +'<label class="crew-limit-control">기본 최대 출전 <input type="number" min="0" max="99" step="1" data-act="cAppearanceLimit" data-id="'+c.id+'" value="'+crewAutoAppearanceLimit(c.id)+'"> 회</label>'
       +'<span class="spacer"></span>'
       +'<button class="sm noprint" data-act="addMember" data-id="'+c.id+'">+ 선수</button>'
@@ -5244,8 +5288,8 @@ document.addEventListener('click',e=>{
   else if(act==='deleteAllRounds'){
     if(!S.rounds.length){toast('삭제할 라운드가 없습니다.');return;}
     if(!confirm('등록된 모든 라운드를 삭제할까요?\n크루 · 선수 · 종목 · 설정은 유지됩니다.'))return;
-    S.rounds=[];S.gameCycle=0;lastChamp=null;hideVictoryStage();
-    toast('모든 라운드를 삭제했습니다.');
+    S.rounds=[];S.gameCycle=0;(S.crews||[]).forEach(c=>{c.appearanceAutoBonus=0;});lastChamp=null;hideVictoryStage();
+    toast('모든 라운드를 삭제했습니다. 자동 추가 출전 한도도 초기화했습니다.');
   }
   else if(act==='spin'){ openGameRoulette(r,true); return; }
   else if(act==='respin'){
@@ -5365,7 +5409,7 @@ document.addEventListener('click',e=>{
   else if(act==='addGame'){ S.games.push({id:uid(),name:'새 종목',perTeam:0,note:'',appearanceLimitException:false,fixedSetup:null,enabled:true}); }
   else if(act==='delGame'){ S.games=S.games.filter(g=>g.id!==id);
     S.rounds.forEach(x=>{if(x.gameId===id){resetLineupLock(x);x.gameId=null;x.stage='game';x.lineups={};x.winners=[];x.semiWinners=[null,null];}}); }
-  else if(act==='addCrew'){ S.crews.push({id:uid(),name:'새 크루',color:PALETTE[S.crews.length%PALETTE.length],banner:null,appearanceLimit:2,allowThirdAppearance:false,members:[]}); }
+  else if(act==='addCrew'){ S.crews.push({id:uid(),name:'새 크루',color:PALETTE[S.crews.length%PALETTE.length],banner:null,appearanceLimit:2,appearanceAutoBonus:0,allowThirdAppearance:false,members:[]}); }
   else if(act==='delCrew'){ if(!confirm('이 크루를 삭제할까요?')) return;
     S.crews=S.crews.filter(c=>c.id!==id);
     S.rounds.forEach(x=>{ x.winners=x.winners.filter(w=>w!==id); delete x.lineups[id];

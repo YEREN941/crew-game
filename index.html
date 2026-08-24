@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>크루 대항 종합게임</title>
-<meta name="app-build" content="reserved-fixed-lineups-weighted-v24-20260825">
+<meta name="app-build" content="consecutive-fallback-compact-count-v25-20260825">
 <meta name="description" content="크루 대항 종합게임 - 대진 룰렛, 종목 슬롯머신, 출전자 추첨, 실시간 전광판">
 <meta property="og:title" content="크루 대항 종합게임">
 <meta property="og:description" content="대진 룰렛 · 종목 슬롯머신 · 출전자 추첨 · 실시간 전광판">
@@ -2146,7 +2146,7 @@ body.broadcast-overlay-mode #boSceneMatch .bo-lineup-wait{
   .crew-limit-control{display:inline-flex;align-items:center;gap:6px;padding:5px 8px;border:1px solid #354158;border-radius:8px;background:#101620;color:#aab8ca;font-size:11px;font-weight:850;white-space:nowrap}
   .crew-limit-control input{width:55px!important;padding:4px 5px!important;text-align:center;font-size:11px!important}
 </style>
-<!-- app-build: reserved-fixed-lineups-weighted-v24-20260825 -->
+<!-- app-build: consecutive-fallback-compact-count-v25-20260825 -->
 </head>
 <body data-active-tab="board">
 
@@ -3085,10 +3085,12 @@ function appearCount(cid,mid){
 
 /*
  * 선수 자동 추첨 규칙
- * 1) 일반 종목끼리는 직전 "일반 종목" 출전 선수가 다음 일반 종목 자동 추첨에서 완전 제외됩니다.
+ * 1) 일반 종목끼리는 직전 "일반 종목" 출전 선수를 우선 제외합니다.
  *    → 팀당 인원 0인 "전원 참여" 종목은 연속 출전 판정의 연결고리에서 건너뜁니다.
- *       예: R1 일반 → R2 폴가이즈(전원) → R3 일반이면 R1과 R3은 선수 중복 금지,
+ *       예: R1 일반 → R2 폴가이즈(전원) → R3 일반이면 기본적으로 R1과 R3은 선수 중복 금지,
  *           폴가이즈(R2)와 R3의 선수 중복은 허용됩니다.
+ *    → 단, 직전 일반 종목 출전자를 제외하고는 필요한 인원을 채울 수 없을 때만
+ *       최대 출전 횟수를 넘지 않는 범위에서 직전 일반 종목 출전자도 부족 인원만큼 예외 허용합니다.
  * 2) 크루별/선수별 최대 출전 횟수는 관리자 화면에서 직접 지정합니다.
  * 3) 종목 자체에 저장해 둔 "고정 참가자"는 그 종목을 아직 라운드에 등록하지 않았어도
  *    향후 출전 예약으로 간주하여 룰렛 최대 출전 횟수와 남은 횟수 계산에 미리 포함합니다.
@@ -3204,11 +3206,14 @@ function memberAppearanceStatus(cid,mid){
   const limit=memberAutoAppearanceLimit(cid,mid);
   return {played,reserved,used,limit,remaining:Math.max(0,limit-used),over:Math.max(0,used-limit)};
 }
-function memberAutoEligible(r,cid,mid){
+function memberWithinAppearanceLimit(r,cid,mid){
   if(!r)return false;
-  if(memberWasInPreviousRound(r,cid,mid))return false; // 전원 참여 종목을 건너뛴 직전 일반 종목과는 중복 출전 금지
-  if(roundAppearanceLimitException(r))return true;   // 현재 종목은 누적 출전 상한 예외
+  if(roundAppearanceLimitException(r))return true; // 현재 종목은 누적 출전 상한 예외
   return memberPastAppearanceCount(r,cid,mid)<memberAutoAppearanceLimit(cid,mid);
+}
+function memberAutoEligible(r,cid,mid){
+  if(!memberWithinAppearanceLimit(r,cid,mid))return false;
+  return !memberWasInPreviousRound(r,cid,mid); // 평소에는 직전 일반 종목 출전자 제외
 }
 function remainingAppearanceWeight(r,cid,mid){
   const limit=memberAutoAppearanceLimit(cid,mid);
@@ -3219,8 +3224,7 @@ function remainingAppearanceWeight(r,cid,mid){
   if(remaining===2)return 2.0;
   return 1.0;
 }
-function recentMemberWeight(r,cid,mid){
-  if(!memberAutoEligible(r,cid,mid))return 0;
+function recentIntervalWeight(r,cid,mid){
   const idx=S.rounds.findIndex(x=>x.id===r.id);
   let recent=1.0;
   if(idx>0){
@@ -3230,20 +3234,35 @@ function recentMemberWeight(r,cid,mid){
     if(Array.isArray(l2)&&l2.includes(mid))recent=.70;
     else if(Array.isArray(l3)&&l3.includes(mid))recent=.85;
   }
-  return recent*remainingAppearanceWeight(r,cid,mid);
+  return recent;
 }
-function eligibleMemberIds(r,cid){
+function recentMemberWeight(r,cid,mid){
+  if(!memberAutoEligible(r,cid,mid))return 0;
+  return recentIntervalWeight(r,cid,mid)*remainingAppearanceWeight(r,cid,mid);
+}
+function fallbackMemberWeight(r,cid,mid){
+  // 직전 일반 종목 출전자는 정상 후보가 부족할 때만 이 풀에 들어옵니다.
+  if(!memberWithinAppearanceLimit(r,cid,mid)||!memberWasInPreviousRound(r,cid,mid))return 0;
+  return remainingAppearanceWeight(r,cid,mid);
+}
+function strictEligibleMemberIds(r,cid){
   const c=crew(cid);if(!c)return [];
   return (c.members||[]).filter(m=>memberAutoEligible(r,cid,m.id)).map(m=>m.id);
 }
-function weightedMemberIds(r,cid,k){
-  const c=crew(cid); if(!c) return [];
-  const pool=(c.members||[])
-    .map(m=>({id:m.id,w:recentMemberWeight(r,cid,m.id)}))
-    .filter(x=>x.w>0);
+function fallbackEligibleMemberIds(r,cid){
+  const c=crew(cid);if(!c)return [];
+  return (c.members||[]).filter(m=>memberWithinAppearanceLimit(r,cid,m.id)&&memberWasInPreviousRound(r,cid,m.id)).map(m=>m.id);
+}
+function eligibleMemberIds(r,cid,k){
+  const strict=strictEligibleMemberIds(r,cid);
+  if(!Number.isFinite(Number(k))||strict.length>=Number(k))return strict;
+  return strict.concat(fallbackEligibleMemberIds(r,cid).filter(id=>!strict.includes(id)));
+}
+function drawWeightedPool(pool,count){
+  pool=(pool||[]).slice();
   const out=[];
-  const count=Math.min(k,pool.length);
-  while(out.length<count&&pool.length){
+  const target=Math.min(Math.max(0,Number(count)||0),pool.length);
+  while(out.length<target&&pool.length){
     const total=pool.reduce((sum,x)=>sum+x.w,0);
     let roll=Math.random()*total,chosen=pool.length-1;
     for(let i=0;i<pool.length;i++){
@@ -3251,8 +3270,27 @@ function weightedMemberIds(r,cid,k){
       if(roll<=0){chosen=i;break;}
     }
     out.push(pool[chosen].id);
-    pool.splice(chosen,1); // 한 번의 추첨 안에서는 중복 출전 없음
+    pool.splice(chosen,1);
   }
+  return out;
+}
+function weightedMemberIds(r,cid,k){
+  const c=crew(cid); if(!c) return [];
+  const strictPool=(c.members||[])
+    .map(m=>({id:m.id,w:recentMemberWeight(r,cid,m.id)}))
+    .filter(x=>x.w>0);
+
+  // 정상 후보가 충분하면 직전 일반 종목 출전자는 절대 후보에 넣지 않습니다.
+  if(strictPool.length>=k)return drawWeightedPool(strictPool,k);
+
+  // 정상 후보만으로 부족한 경우 정상 후보를 먼저 모두 사용하고,
+  // 부족분에 한해서만 직전 일반 종목 출전자를 비상 후보로 허용합니다.
+  const out=drawWeightedPool(strictPool,strictPool.length);
+  const used=new Set(out);
+  const fallbackPool=(c.members||[])
+    .map(m=>({id:m.id,w:fallbackMemberWeight(r,cid,m.id)}))
+    .filter(x=>x.w>0&&!used.has(x.id));
+  out.push(...drawWeightedPool(fallbackPool,k-out.length));
   return out;
 }
 function pickMembers(cid,k,r){
@@ -3690,12 +3728,16 @@ function openPlayerReveal(r,cid,auto){
   const c=crew(cid);
   if(!c||!c.members.length){toast('선수 명단이 비어 있습니다.');return;}
   if(c.members.length<k){toast(c.name+'의 선수 수가 팀당 인원보다 적습니다.');return;}
-  const eligible=eligibleMemberIds(r,cid);
+  const strictEligible=strictEligibleMemberIds(r,cid);
+  const eligible=eligibleMemberIds(r,cid,k);
   if(eligible.length<k){
     const limit=crewAutoAppearanceLimit(cid);
-    const rule=roundAppearanceLimitException(r)?'예외 종목 · 연속 출전 금지':'연속 출전 금지 · 선수당 최대 '+limit+'회';
-    toast(c.name+' 자동 추첨 가능 선수가 '+eligible.length+'명뿐입니다. · '+rule);
+    const rule=roundAppearanceLimitException(r)?'출전 횟수 예외 종목':'선수당 최대 '+limit+'회';
+    toast(c.name+' 자동 추첨 가능 선수가 '+eligible.length+'명뿐입니다. · 직전 출전자 예외까지 적용 · '+rule);
     return;
+  }
+  if(strictEligible.length<k){
+    toast(c.name+' 신규 후보가 부족해 직전 일반 종목 출전자를 '+(k-strictEligible.length)+'명까지 예외 허용합니다.');
   }
 
   clearPRTimers();
@@ -4944,9 +4986,9 @@ function renderCrews(){
         const st=memberAppearanceStatus(c.id,m.id);
         const statusCls=st.over?' over':(st.remaining===0?' zero':'');
         const statusText=st.over?('제한 초과 '+st.over+'회'):('남은 '+st.remaining+'회');
-        return '<div class="crew-roster-player" title="'+esc(m.name)+' · 반영 '+st.used+'/'+st.limit+'회 (실출전 '+st.played+' · 고정예약 '+st.reserved+')">'+av
+        return '<div class="crew-roster-player" title="'+esc(m.name)+' · 반영 '+st.used+'/'+st.limit+'회 (실출전 '+st.played+' · 고정 '+st.reserved+')">'+av
           +'<div class="crew-roster-player-name">'+esc(m.name)+'</div>'
-          +'<div class="appearance-left'+statusCls+'">'+statusText+' <span>'+st.used+'/'+st.limit+(st.reserved?' · 예약 '+st.reserved:'')+'</span></div></div>';
+          +'<div class="appearance-left'+statusCls+'">'+statusText+' <span>'+st.used+'/'+st.limit+'</span></div></div>';
       }).join('');
       const banner=c.banner
         ?'<img src="'+esc(c.banner)+'" alt="'+esc(c.name)+' 배너">'
@@ -4971,7 +5013,7 @@ function renderCrews(){
       +'<div style="min-width:0;flex:1;display:grid;gap:5px">'
       +'<input data-act="mName" data-id="'+c.id+'" data-mid="'+m.id+'" value="'+esc(m.name)+'">'
       +'<div class="member-limit-row"><label>개별 제한 <input type="number" min="0" max="99" step="1" data-act="mAppearanceLimit" data-id="'+c.id+'" data-mid="'+m.id+'" value="'+esc(ov)+'" placeholder="'+base+'" title="비워두면 크루 기본 '+base+'회를 사용합니다. 0이면 자동 룰렛에서 제외됩니다."></label>'
-      +'<span class="appearance-left'+statusCls+'">남은 '+st.remaining+'회 <b>'+st.used+'/'+st.limit+(st.reserved?' · 예약 '+st.reserved:'')+'</b></span></div>'
+      +'<span class="appearance-left'+statusCls+'">남은 '+st.remaining+'회 <b>'+st.used+'/'+st.limit+'</b></span></div>'
       +'</div>'
       +'<button class="x noprint" data-act="delMember" data-id="'+c.id+'" data-mid="'+m.id+'" title="삭제">×</button></div>';
     }).join('');

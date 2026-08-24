@@ -2424,11 +2424,34 @@ body.broadcast-overlay-mode #boSceneMatch .bo-lineup-wait{
   </section>
 </main>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<!-- 버전 고정: @2 로 두면 CDN이 매번 최신 빌드를 내려보냅니다(공급망 위험).
+     integrity 해시 추가는 README/보고서의 openssl 한 줄 참고. -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.3/dist/umd/supabase.js" crossorigin="anonymous"></script>
 <script>
 "use strict";
 const uid=()=>Math.random().toString(36).slice(2,9);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+/* ---------- 값 검증 헬퍼 ----------
+   크루 색상 / 이미지 주소는 관리자 UI 밖(서버 행, JSON 복원)에서도 들어올 수 있습니다.
+   HTML 속성에 그대로 꽂으면 속성을 탈출할 수 있으므로 형식을 강제합니다. */
+const DEFAULT_CREW_COLOR='#5b8cff';
+const HEX_COLOR=/^#(?:[0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6}|[0-9a-f]{8})$/i;
+function safeColor(v){
+  const c=String(v==null?'':v).trim();
+  return HEX_COLOR.test(c)?c:DEFAULT_CREW_COLOR;
+}
+/* 허용: https / data:image / blob. javascript: 등은 전부 버립니다. */
+const SAFE_IMG=/^(?:https?:\/\/|data:image\/(?:png|jpe?g|gif|webp|avif);base64,|blob:)/i;
+function safeImageSrc(v){
+  const u=String(v==null?'':v).trim();
+  if(!u)return '';
+  return SAFE_IMG.test(u)?u:'';
+}
+/* 여러 크루로 이뤄진 한 진영의 표시 이름 (예: "조적단 + 버인") */
+function unitName(unit){
+  return (unit||[]).filter(Boolean).map(crewName).join(' + ');
+}
 const STATIC_PROFILE_VERSION='20260819a';
 function profileSrc(src){
   if(!src)return '';
@@ -2712,7 +2735,43 @@ function liveWhenFree(isBusy,fn,tries){
   if(tries<=0)return;
   setTimeout(()=>liveWhenFree(isBusy,fn,tries-1),120);
 }
+/* broadcast 의 from 값은 발신자가 직접 써 넣는 값이라 신뢰할 수 없습니다.
+   채널을 private 로 바꾸기 전까지, 최소한 모양이 이상한 payload 는 버립니다. */
+const LIVE_KINDS=['wheel','game','player','entry'];
+const LIVE_PHASES=['open','spin','reveal','close','show'];
+function validDrawPayload(p){
+  if(!p||typeof p!=='object')return false;
+  if(!LIVE_KINDS.includes(p.kind)||!LIVE_PHASES.includes(p.phase))return false;
+  if(p.items&&(!Array.isArray(p.items)||p.items.length>200))return false;
+  if(p.pool&&(!Array.isArray(p.pool)||p.pool.length>200))return false;
+  if(p.seq&&(!Array.isArray(p.seq)||p.seq.length>500))return false;
+  const dur=Number(p.dur);
+  if(p.dur!=null&&(!Number.isFinite(dur)||dur<0||dur>60000))return false;
+  return true;
+}
+/* broadcast 로 들어온 이미지·색상은 migrate() 를 거치지 않으므로 여기서 직접 걸러냅니다. */
+function sanitizeDrawCrew(c){
+  if(!c||typeof c!=='object')return c;
+  if('color' in c)c.color=safeColor(c.color);
+  if('banner' in c)c.banner=safeImageSrc(c.banner)||null;
+  return c;
+}
+function sanitizeDrawMember(m){
+  if(!m||typeof m!=='object')return m;
+  m.photo=safeImageSrc(m.photo)||null;
+  return m;
+}
+function sanitizeDrawPayload(p){
+  if(!p||typeof p!=='object')return p;
+  sanitizeDrawCrew(p.crew);
+  sanitizeDrawMember(p.member);
+  if(Array.isArray(p.members))p.members.forEach(sanitizeDrawMember);
+  if(Array.isArray(p.items))p.items.forEach(sanitizeDrawCrew);   // 룰렛 항목은 color 만 씁니다
+  return p;
+}
 function handleLiveDraw(p){
+  if(!validDrawPayload(p))return;
+  sanitizeDrawPayload(p);
   // 방송 HUD에서는 관리자용 룰렛/리빌 전체화면을 띄우지 않고 A/B/C HUD만 유지합니다.
   if(typeof BO!=='undefined'&&BO.enabled)return;
   if(!p||!p.kind)return;
@@ -2830,6 +2889,10 @@ function migrate(d){
   (d.crews||[]).forEach(c=>{
     if(c.banner===undefined)c.banner=null;
     applyReferenceRosterToCrew(c);
+    // 서버 행 · JSON 복원처럼 관리자 UI 밖에서 들어온 값은 형식을 강제합니다.
+    c.color=safeColor(c.color);
+    c.banner=safeImageSrc(c.banner)||null;
+    if(Array.isArray(c.members))c.members.forEach(m=>{ if(m)m.photo=safeImageSrc(m.photo)||null; });
   });
   if(d.sfx===undefined) d.sfx=true;
   if(d.sfxVolume===undefined || !Number.isFinite(Number(d.sfxVolume))) d.sfxVolume=0.35;
@@ -2879,9 +2942,32 @@ function crewBannerWrapStyle(c){
   ].join(';');
 }
 const winsOf=cid=>S.rounds.filter(r=>(r.winners||[]).includes(cid)).length;
+/* 목표 승수에 '먼저' 도달한 크루가 우승입니다.
+   같은 라운드에서 동시에 도달하면 champion()은 한 팀만 돌려주므로,
+   championTie()가 true인 동안 화면에서 동점임을 알립니다. */
+function reachedTargetAt(cid){
+  let n=0;
+  for(let i=0;i<S.rounds.length;i++){
+    if((S.rounds[i].winners||[]).includes(cid)){
+      n++;
+      if(n>=S.winTarget)return i;
+    }
+  }
+  return -1;
+}
+function championCandidates(){
+  return S.crews
+    .map(x=>({crew:x,at:reachedTargetAt(x.id)}))
+    .filter(x=>x.at>=0)
+    .sort((a,b)=>a.at-b.at||winsOf(b.crew.id)-winsOf(a.crew.id));
+}
 function champion(){
-  const c=S.crews.filter(x=>winsOf(x.id)>=S.winTarget);
-  return c.length?c.sort((a,b)=>winsOf(b.id)-winsOf(a.id))[0]:null;
+  const c=championCandidates();
+  return c.length?c[0].crew:null;
+}
+function championTie(){
+  const c=championCandidates();
+  return c.length>1&&c[0].at===c[1].at;
 }
 const usedGameIds=except=>S.rounds.filter(r=>r.id!==except&&r.gameId).map(r=>r.gameId);
 const availableGames=except=>{const u=usedGameIds(except);return S.games.filter(g=>g.enabled&&!u.includes(g.id));};
@@ -3099,9 +3185,9 @@ function spinOnce(dur,cb,forcedIdx){
 }
 function renderPicked(){
   document.getElementById('mPicked').innerHTML=W.picked.map((p,i)=>
-    '<span class="pchip"'+(p.color?' style="border-color:'+p.color+'55"':'')+'>'
+    '<span class="pchip"'+(p.color?' style="border-color:'+safeColor(p.color)+'55"':'')+'>'
     +(W.count>1?'<b>'+(i+1)+'</b>':'')
-    +(p.color?'<span class="dot" style="background:'+p.color+'"></span>':'')
+    +(p.color?'<span class="dot" style="background:'+safeColor(p.color)+'"></span>':'')
     +esc(p.label)+'</span>').join('');
   const done=W.picked.length>=W.count;
   document.getElementById('mApply').style.display=done?'':'none';
@@ -4003,8 +4089,8 @@ function boSingleTeam(r,cid,perTeam){
   const isAll=perTeam===0;
   const ids=isAll?(c.members||[]).map(m=>m.id):(((r.lineups||{})[cid])||[]);
   const count=isAll?'전원 참여':(ids.length?ids.length+'명 출전':'선수 추첨 대기');
-  const banner=c.banner?'<span class="bo-team-banner"><img src="'+esc(c.banner)+'" alt="'+esc(c.name)+' 배너"></span>':'<span class="dot" style="background:'+c.color+'"></span>';
-  return '<div class="bo-team" style="--crew:'+c.color+'">'
+  const banner=c.banner?'<span class="bo-team-banner"><img src="'+esc(c.banner)+'" alt="'+esc(c.name)+' 배너"></span>':'<span class="dot" style="background:'+safeColor(c.color)+'"></span>';
+  return '<div class="bo-team" style="--crew:'+safeColor(c.color)+'">'
     +'<div class="bo-team-head">'+banner+'<span class="bo-team-name">'+esc(c.name)+'</span><span class="bo-team-count">'+esc(count)+'</span></div>'
     +boPlayerGroup(c,ids,isAll)+'</div>';
 }
@@ -4013,9 +4099,9 @@ function boUnitTeam(r,unit,perTeam){
   if(unit.length===1)return boSingleTeam(r,unit[0],perTeam);
   if(!unit.length)return '';
   const main=crew(unit[0]);
-  return '<div class="bo-team" style="--crew:'+(main?main.color:'#5b8cff')+'">'
+  return '<div class="bo-team" style="--crew:'+safeColor(main&&main.color)+'">'
     +'<div class="bo-team-head"><span class="bo-team-name">'+esc(unit.map(crewName).join(' · '))+'</span></div>'
-    +unit.map(cid=>{const c=crew(cid);if(!c)return '';const isAll=perTeam===0;const ids=isAll?c.members.map(m=>m.id):(((r.lineups||{})[cid])||[]);return '<div class="bo-subcrew" style="--crew:'+c.color+'"><div class="bo-subcrew-title"><span class="dot" style="background:'+c.color+'"></span>'+esc(c.name)+'</div>'+boPlayerGroup(c,ids,isAll)+'</div>';}).join('')
+    +unit.map(cid=>{const c=crew(cid);if(!c)return '';const isAll=perTeam===0;const ids=isAll?c.members.map(m=>m.id):(((r.lineups||{})[cid])||[]);return '<div class="bo-subcrew" style="--crew:'+safeColor(c.color)+'"><div class="bo-subcrew-title"><span class="dot" style="background:'+safeColor(c.color)+'"></span>'+esc(c.name)+'</div>'+boPlayerGroup(c,ids,isAll)+'</div>';}).join('')
     +'</div>';
 }
 function boRenderStandings(active){
@@ -4029,7 +4115,7 @@ function boRenderStandings(active){
     const c=x.c,w=x.w;
     const logo=c.banner?'<div class="bo-standing-logo"><img src="'+esc(c.banner)+'" alt="'+esc(c.name)+' 로고"></div>'
       :'<div class="bo-standing-logo"><div class="bo-standing-logo-fallback">'+esc(c.name)+'</div></div>';
-    return '<div class="bo-standing-row" style="--crew:'+c.color+'">'
+    return '<div class="bo-standing-row" style="--crew:'+safeColor(c.color)+'">'
       +'<div class="bo-standing-rank">'+(rank+1)+'</div>'+logo
       +'<div class="bo-standing-info"><b>'+esc(c.name)+'</b></div>'
       +'<div class="bo-standing-points"><strong>'+w+'</strong><span>승</span></div></div>';
@@ -4061,7 +4147,7 @@ function boRenderMatch(active){
 }
 function boRenderResultStrip(){
   const el=document.getElementById('boResultStrip');if(!el)return;
-  el.innerHTML=S.crews.map(c=>'<div class="bo-result-mini" style="--crew:'+c.color+'">'
+  el.innerHTML=S.crews.map(c=>'<div class="bo-result-mini" style="--crew:'+safeColor(c.color)+'">'
     +(c.banner?'<img src="'+esc(c.banner)+'" alt="'+esc(c.name)+'">':'')
     +'<b>'+esc(c.name)+'</b><span>'+winsOf(c.id)+'승</span></div>').join('');
 }
@@ -4102,8 +4188,11 @@ function renderBroadcastOverlay(initial){
 
 function renderBoard(){
   const ch=champion();
+  const tie=ch?championTie():false;
   document.getElementById('champBanner').innerHTML=ch
-    ?'<div class="banner">🏆 우승 — '+esc(ch.name)+' <span style="font-size:15px">('+winsOf(ch.id)+'승)</span></div>':'';
+    ?'<div class="banner">🏆 우승 — '+esc(ch.name)+' <span style="font-size:15px">('+winsOf(ch.id)+'승)</span>'
+      +(tie?'<span style="font-size:14px;display:block;margin-top:4px;opacity:.85">⚠ 같은 라운드에 동시 도달 — 공동 1위입니다. 우승 크루를 직접 확인해주세요.</span>':'')
+      +'</div>':'';
   if(ch&&lastChamp!==ch.id){ lastChamp=ch.id; showVictoryStage(ch); setTimeout(confetti,850); }
   if(!ch) lastChamp=null;
 
@@ -4152,7 +4241,7 @@ function renderBoard(){
     const logo=c.banner
       ?'<div class="broadcast-crew-logo"><img src="'+esc(c.banner)+'" alt="'+esc(c.name)+' 배너"></div>'
       :'<div class="broadcast-crew-logo"><div class="broadcast-crew-logo-fallback">'+esc(c.name)+'</div></div>';
-    return '<div class="broadcast-crew-card'+(ch&&ch.id===c.id?' champ':'')+'" style="--crew:'+c.color+'">'
+    return '<div class="broadcast-crew-card'+(ch&&ch.id===c.id?' champ':'')+'" style="--crew:'+safeColor(c.color)+'">'
       +logo
       +'<div><div class="broadcast-crew-name">'+esc(c.name)+'</div><div class="broadcast-crew-meta"><span>'+participation+'</span></div></div>'
       +'<div class="broadcast-win"><small>크루 승</small><strong>'+w+'</strong><span> / '+S.winTarget+'</span></div>'
@@ -4189,8 +4278,8 @@ function renderBoard(){
     const info=crewLineupInfo(active,cid); if(!info)return '';
     const c=info.c;
     const count=info.isAll?'전원 '+info.ids.length+'명':(info.ids.length?info.ids.length+'명 출전':'미정');
-    const banner=c.banner?'<span class="broadcast-side-banner"><img src="'+esc(c.banner)+'" alt="'+esc(c.name)+' 배너"></span>':'<span class="dot" style="background:'+c.color+'"></span>';
-    return '<div class="broadcast-side '+(extraClass||'')+'" style="--crew:'+c.color+'">'
+    const banner=c.banner?'<span class="broadcast-side-banner"><img src="'+esc(c.banner)+'" alt="'+esc(c.name)+' 배너"></span>':'<span class="dot" style="background:'+safeColor(c.color)+'"></span>';
+    return '<div class="broadcast-side '+(extraClass||'')+'" style="--crew:'+safeColor(c.color)+'">'
       +'<div class="broadcast-side-head">'+banner+'<span class="broadcast-side-name">'+esc(c.name)+'</span><span class="broadcast-side-count">'+count+'</span></div>'
       +playersHTML(info)+'</div>';
   }
@@ -4204,8 +4293,8 @@ function renderBoard(){
     const label=unit.map(crewName).join(' · ');
     const sub=unit.map(cid=>{
       const info=crewLineupInfo(active,cid); if(!info)return '';
-      return '<div class="broadcast-subcrew" style="--crew:'+info.c.color+'">'
-        +'<div class="broadcast-subcrew-head"><span class="dot" style="background:'+info.c.color+'"></span>'+esc(info.c.name)+'</div>'
+      return '<div class="broadcast-subcrew" style="--crew:'+safeColor(info.c.color)+'">'
+        +'<div class="broadcast-subcrew-head"><span class="dot" style="background:'+safeColor(info.c.color)+'"></span>'+esc(info.c.name)+'</div>'
         +playersHTML(info)+'</div>';
     }).join('');
     return '<div class="broadcast-side unit-multi" style="--crew:'+mainColor+'"><div class="broadcast-side-head"><span class="broadcast-side-name">'+esc(label)+'</span></div>'+sub+'</div>';
@@ -4263,7 +4352,7 @@ function renderBoard(){
       if(main){
         result=(main.banner?'<img src="'+esc(main.banner)+'" alt="'+esc(main.name)+' 배너">':'')+'<b>'+esc(main.name)+' 승</b>';
       }else result='<span>'+(active&&active.id===r.id?'대기중':'미정')+'</span>';
-      return '<div class="broadcast-history-row" style="--rh-color:'+color+'">'
+      return '<div class="broadcast-history-row" style="--rh-color:'+safeColor(color)+'">'
         +'<div class="broadcast-history-round">ROUND<b>'+(i+1)+'</b></div>'
         +'<div class="broadcast-history-game"><strong>'+(g?esc(g.name):'미정')+'</strong><small>'+esc(r.mode==='all'?'전 크루':(MODE_LABEL[r.mode]||r.mode||'대진 미정'))+'</small></div>'
         +'<div class="broadcast-history-result">'+result+'</div></div>';
@@ -4287,7 +4376,7 @@ function avatar(m){
   }
 
   return src
-    ?'<img class="av" data-name="'+esc(m.name||'')+'" src="'+src+'" alt="'+esc(m.name||'')+'" onerror="avatarFallback(this)">'
+    ?'<img class="av" data-name="'+esc(m.name||'')+'" src="'+esc(src)+'" alt="'+esc(m.name||'')+'" onerror="avatarFallback(this)">'
     :'<div class="av">'+ini+'</div>';
 }
 function rosterHTML(r,cid){
@@ -4514,7 +4603,7 @@ function renderCrews(){
       ?'<img src="'+esc(c.banner)+'" alt="'+esc(c.name)+' 배너">'
       :'<span class="none">등록된 배너 없음</span>';
     return '<div class="crewbox"><div class="crewhd">'
-      +'<input type="color" data-act="cColor" data-id="'+c.id+'" value="'+c.color+'">'
+      +'<input type="color" data-act="cColor" data-id="'+c.id+'" value="'+safeColor(c.color)+'">'
       +'<input class="nm" data-act="cName" data-id="'+c.id+'" value="'+esc(c.name)+'">'
       +'<span class="hint">'+c.members.length+'명 · '+winsOf(c.id)+'승</span><span class="spacer"></span>'
       +'<button class="sm noprint" data-act="addMember" data-id="'+c.id+'">+ 선수</button>'
@@ -4693,16 +4782,17 @@ document.addEventListener('click',e=>{
     S.rounds.forEach(x=>{ x.winners=x.winners.filter(w=>w!==id); delete x.lineups[id];
       if(x.order) x.order=x.order.filter(o=>o!==id);
       if(x.teams) x.teams=x.teams.map(g=>g.map(v=>v===id?null:v)); }); }
-  else if(act==='addMember'){ crew(id).members.push({id:uid(),name:'선수 '+(crew(id).members.length+1),photo:null}); }
-  else if(act==='delMember'){ const c=crew(id); c.members=c.members.filter(m=>m.id!==mid);
+  else if(act==='addMember'){ const c=crew(id); if(!c)return; if(!Array.isArray(c.members))c.members=[];
+    c.members.push({id:uid(),name:'선수 '+(c.members.length+1),photo:null}); }
+  else if(act==='delMember'){ const c=crew(id); if(!c)return; c.members=(c.members||[]).filter(m=>m.id!==mid);
     S.rounds.forEach(x=>{ if(x.lineups[id]) x.lineups[id]=x.lineups[id].filter(v=>v!==mid); }); }
-  else if(act==='bulk'){ const c=crew(id);
+  else if(act==='bulk'){ const c=crew(id); if(!c)return; if(!Array.isArray(c.members))c.members=[];
     const txt=prompt('닉네임을 한 줄에 한 명씩 붙여넣으세요.\n(기존 명단 뒤에 추가됩니다)','');
     if(!txt) return;
     txt.split('\n').map(s=>s.trim()).filter(Boolean).forEach(n=>c.members.push({id:uid(),name:n,photo:null})); }
   else if(act==='photo'){ photoTarget={cid:id,mid}; document.getElementById('photoFile').click(); return; }
   else if(act==='bannerUpload'){ bannerTarget=id; document.getElementById('bannerFile').click(); return; }
-  else if(act==='bannerRemove'){ const c=crew(id); if(c){ c.banner=null; toast('배너를 제거했습니다.'); } }
+  else if(act==='bannerRemove'){ const c=crew(id); if(!c)return; c.banner=null; toast('배너를 제거했습니다.'); }
   else if(act==='print'){ window.print(); return; }
   else if(act==='export'){
     const blob=new Blob([JSON.stringify(S)],{type:'application/json'});
@@ -4721,6 +4811,11 @@ document.addEventListener('change',e=>{
   if(SUPABASE_READY&&!currentUser){ toast('관리자 로그인 후 수정할 수 있습니다.'); return; }
   const act=t.dataset.act,id=t.dataset.id,mid=t.dataset.mid;
   const r=S.rounds.find(x=>x.id===id),g=S.games.find(x=>x.id===id),c=crew(id);
+  // 원격 동기화로 항목이 사라진 직후의 입력을 조용히 무시합니다.
+  const needsRound=['setGame','setMode','setTeamCrew'].includes(act);
+  const needsGame=['gName','gNum','gNote','gOn'].includes(act);
+  const needsCrew=['cName','cColor','mName'].includes(act);
+  if((needsRound&&!r)||(needsGame&&!g)||(needsCrew&&!c)){ render(); return; }
   if(act==='setGame'){
     r.gameId=t.value||null; r.stage=r.gameId?'match':'game'; r.order=null;
     r.teams=r.mode==='all'?null:defaultTeams(r.mode); clearRoundResult(r);
@@ -4932,7 +5027,7 @@ boSingleTeam=function(r,cid,perTeam){
   const banner=c.banner
     ?'<span class="bo-team-banner"><img src="'+esc(c.banner)+'" alt="'+esc(c.name)+' 배너"></span>'
     :'<span class="bo-team-banner"><div class="bo-crew-banner-fallback">'+esc(c.name)+'</div></span>';
-  return '<div class="bo-team" style="--crew:'+c.color+'">'
+  return '<div class="bo-team" style="--crew:'+safeColor(c.color)+'">'
     +'<div class="bo-team-head">'+banner+'</div>'
     +boPlayerGroup(c,ids,isAll)
     +'</div>';
@@ -4946,7 +5041,7 @@ boUnitTeam=function(r,unit,perTeam){
   const banner=main && main.banner
     ?'<span class="bo-team-banner"><img src="'+esc(main.banner)+'" alt="'+esc(main.name)+' 배너"></span>'
     :'<span class="bo-team-banner"><div class="bo-crew-banner-fallback">'+esc(unit.map(crewName).join(' · '))+'</div></span>';
-  return '<div class="bo-team" style="--crew:'+(main?main.color:'#5b8cff')+'">'
+  return '<div class="bo-team" style="--crew:'+safeColor(main&&main.color)+'">'
     +'<div class="bo-team-head">'+banner+'</div>'
     +'<div class="bo-player-grid dense">'
     +unit.map(cid=>{ const c=crew(cid); return c&&c.members&&c.members[0] ? boAvatarHTML(c.members[0]) : ''; }).join('')
@@ -4955,7 +5050,7 @@ boUnitTeam=function(r,unit,perTeam){
 
 function boWaitBannerHTML(c){
   if(!c) return '';
-  return '<div class="bo-match-wait-banner" style="--crew:'+c.color+'">'
+  return '<div class="bo-match-wait-banner" style="--crew:'+safeColor(c.color)+'">'
     +(c.banner?'<img src="'+esc(c.banner)+'" alt="'+esc(c.name)+' 배너">':'<div class="bo-crew-banner-fallback">'+esc(c.name)+'</div>')
     +'</div>';
 }
@@ -5248,6 +5343,7 @@ renderBroadcastOverlay=function(initial){
 
   function updateBottomTicker(){
     ensureEnhancementDOM();
+    // 하단 티커 DOM(#boBottomTicker)은 현재 HTML에 없습니다. 다시 넣으면 아래가 동작합니다.
     const el=document.getElementById('boBottomTicker'); if(!el) return;
     const r=activeRound();
     const text='ROUND '+(r?roundIndex(r):'-')+' · '+gameNameFromRound(r)+' · '+matchLabelForRound(r)+' · '+scoreSnippetForRound(r);
@@ -5417,7 +5513,9 @@ renderBroadcastOverlay=function(initial){
   };
 
   handleLiveDraw=function(p){
-    if(!p||!p.kind)return;
+    // 이 override 가 실제로 동작하는 버전입니다. 위 원본과 같은 검증을 반드시 유지하세요.
+    if(!validDrawPayload(p))return;
+    sanitizeDrawPayload(p);
     if(p.kind==='entry'){ liveEntry(p); return; }
     if(typeof BO!=='undefined'&&BO.enabled)return;
     if(LIVE.dismissed&&p.phase!=='open')return;
@@ -5500,8 +5598,6 @@ renderBroadcastOverlay=function(initial){
   document.addEventListener('click',function(e){
     const tabBtn=e.target&&e.target.closest&&e.target.closest('#tabs button[data-tab]');
     if(tabBtn&&tabBtn.dataset.tab!=='board') hideBoardRoundResult();
-    const id=e.target&&e.target.id;
-
   });
 
   const _render=render;

@@ -2113,6 +2113,16 @@ body.broadcast-overlay-mode #boSceneMatch .bo-lineup-wait{
   body.broadcast-overlay-mode #boSceneMatch .bo-player .av,body.broadcast-overlay-mode #boSceneMatch .bo-player-grid.few .bo-player .av,body.broadcast-overlay-mode #boSceneMatch .bo-player-grid.dense .bo-player .av{width:9.2vw!important;height:9.2vw!important}
   body.broadcast-overlay-mode #boSceneMatch .bo-player-name,body.broadcast-overlay-mode #boSceneMatch .bo-player-grid.few .bo-player-name,body.broadcast-overlay-mode #boSceneMatch .bo-player-grid.dense .bo-player-name{font-size:2.55vw!important}
 }
+
+  /* v18 · 라운드별 참가자 고정 */
+  .lineup-lock-btn{transition:.16s ease!important}
+  .lineup-lock-btn.locked{
+    color:#1d1707!important;background:linear-gradient(180deg,#f8d979,#e8b63e)!important;
+    border-color:#c99322!important;font-weight:950!important;box-shadow:0 0 0 2px rgba(245,196,81,.10),0 5px 16px rgba(0,0,0,.18)!important
+  }
+  .lineup-lock-badge{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:999px;
+    border:1px solid #665526;background:#292311;color:#f5cf68;font-size:11px;font-weight:900;white-space:nowrap}
+
 </style>
 </head>
 <body data-active-tab="board">
@@ -2864,7 +2874,7 @@ function defaultState(){
 }
 function newRound(mode){
   return {id:uid(),mode:mode||'all',stage:'game',gameId:null,order:null,teams:null,
-          lineups:{},scores:{},semiWinners:[null,null],winners:[],memo:''};
+          lineups:{},lineupLocked:false,lineupLockGameId:null,lockedLineups:{},scores:{},semiWinners:[null,null],winners:[],memo:''};
 }
 function migrate(d){
   if(!d) return d;
@@ -2877,6 +2887,11 @@ function migrate(d){
     if(r.teams===undefined) r.teams=null;
     if(r.order===undefined) r.order=null;
     if(!r.lineups) r.lineups={};
+    if(r.lineupLocked===undefined)r.lineupLocked=false;
+    r.lineupLocked=!!r.lineupLocked;
+    if(!r.lockedLineups||typeof r.lockedLineups!=='object')r.lockedLineups={};
+    if(r.lineupLockGameId===undefined)r.lineupLockGameId=r.lineupLocked?r.gameId:null;
+    if(r.lineupLocked&&r.lineupLockGameId!==r.gameId)resetLineupLock(r);
     if(!r.scores) r.scores={};
     if(r.mode==='semi'){
       if(!Array.isArray(r.semiWinners)){
@@ -3122,10 +3137,48 @@ function perTeamOf(r){ const g=game(r.gameId); return g?Number(g.perTeam)||0:0; 
 function autoLineup(r){
   const k=perTeamOf(r); r.lineups={};
   if(!k) return;
-  participantsOf(r).forEach(cid=>{ r.lineups[cid]=pickMembers(cid,k,r); });
+  participantsOf(r).forEach(cid=>{ r.lineups[cid]=pickMembers(cid,k,r); rememberLockedLineup(r,cid); });
 }
-function clearRoundResult(r){
-  r.lineups={};r.scores={};r.winners=[];r.semiWinners=[null,null];
+function cloneLineupMap(src){
+  const out={};
+  Object.entries(src||{}).forEach(([cid,ids])=>{ if(Array.isArray(ids)&&ids.length) out[cid]=ids.slice(); });
+  return out;
+}
+function hasAssignedLineup(r){
+  return Object.values((r&&r.lineups)||{}).some(ids=>Array.isArray(ids)&&ids.length);
+}
+function resetLineupLock(r){
+  if(!r)return;
+  r.lineupLocked=false;
+  r.lineupLockGameId=null;
+  r.lockedLineups={};
+}
+function rememberLockedLineup(r,cid){
+  if(!r||!r.lineupLocked||r.lineupLockGameId!==r.gameId)return;
+  if(!r.lockedLineups)r.lockedLineups={};
+  const ids=((r.lineups||{})[cid]||[]).slice();
+  if(ids.length)r.lockedLineups[cid]=ids;
+  else delete r.lockedLineups[cid];
+}
+function restoreLockedLineupsForParticipants(r){
+  if(!r||!r.lineupLocked||r.lineupLockGameId!==r.gameId)return false;
+  const src=r.lockedLineups||{};
+  const next={};
+  const valid=new Set(participantsOf(r));
+  valid.forEach(cid=>{
+    const c=crew(cid);
+    const ids=(src[cid]||[]).filter(mid=>c&&c.members.some(m=>m.id===mid));
+    if(ids.length)next[cid]=ids.slice();
+  });
+  r.lineups=next;
+  return true;
+}
+function clearRoundResult(r,opt){
+  opt=opt||{};
+  const keep=!!(r&&r.lineupLocked&&r.lineupLockGameId===r.gameId&&!opt.forceClearLineups);
+  r.scores={};r.winners=[];r.semiWinners=[null,null];
+  if(keep)restoreLockedLineupsForParticipants(r);
+  else r.lineups={};
 }
 function matchupReady(r){
   if(r.mode==='all') return S.crews.length>0;
@@ -3552,6 +3605,7 @@ function revealNextPlayer(){
       if(r){
         // 모든 리빌이 끝난 뒤에 한 번만 상태 저장
         r.lineups[PR.cid]=PR.selected.slice();
+        rememberLockedLineup(r,PR.cid);
         PR.applied=true;
         render();
       }
@@ -3675,7 +3729,7 @@ document.getElementById('mlCancelBtn').addEventListener('click',closeManualLineu
 document.getElementById('mlApplyBtn').addEventListener('click',()=>{
   if(LM.selected.length!==LM.limit){toast(LM.limit+'명을 선택해주세요.');return;}
   const r=S.rounds.find(x=>x.id===LM.roundId);if(!r)return;
-  r.lineups[LM.cid]=LM.selected.slice();closeManualLineup();render();toast(crewName(LM.cid)+' 출전자 '+LM.limit+'명 수동 확정');
+  r.lineups[LM.cid]=LM.selected.slice();rememberLockedLineup(r,LM.cid);closeManualLineup();render();toast(crewName(LM.cid)+' 출전자 '+LM.limit+'명 수동 확정');
 });
 document.getElementById('manualLineupModal').addEventListener('click',e=>{if(e.target.id==='manualLineupModal')closeManualLineup();});
 
@@ -3864,7 +3918,8 @@ function spinGameRoulette(){
     r.stage='match';
     r.order=null;
     r.teams=r.mode==='all'?null:(r.teams||defaultTeams(r.mode));
-    clearRoundResult(r);
+    resetLineupLock(r);
+    clearRoundResult(r,{forceClearLineups:true});
     render();
 
     document.getElementById('grRespInBtn').style.display='';
@@ -3932,7 +3987,7 @@ function spinSlot(r){
   })();
   setTimeout(()=>{
     spinning[r.id]=false; frame.classList.add('done'); dingdong();
-    r.gameId=target.id; r.stage='match'; r.order=null; r.teams=r.mode==='all'?null:(r.teams||defaultTeams(r.mode)); clearRoundResult(r);
+    r.gameId=target.id; r.stage='match'; r.order=null; r.teams=r.mode==='all'?null:(r.teams||defaultTeams(r.mode)); resetLineupLock(r); clearRoundResult(r,{forceClearLineups:true});
     setTimeout(()=>{render();setTimeout(flushPendingRemote,0);},700);
   },dur*1000+60);
 }
@@ -4611,7 +4666,9 @@ function renderRounds(){
       +(g&&g.note?'<span class="gnote">'+esc(g.note)+'</span>':'')
       +(stage!=='game'?'<span class="modetag">'+(MODE_LABEL[r.mode]||'커스텀 대진')+'</span>':'')
       +(stage==='lineup'&&k?'<span class="hint">팀당 '+k+'명</span>':'')
+      +(r.lineupLocked?'<span class="lineup-lock-badge">🔒 참가자 유지</span>':'')
       +'<span class="spacer"></span>'
+      +(g&&k?'<button class="'+(r.lineupLocked?'gold locked':'ghost')+' sm noprint lineup-lock-btn" data-act="toggleLineupLock" data-id="'+r.id+'" title="고정하면 대진/순번을 다시 뽑아도 현재 참가자 선택을 유지합니다.">'+(r.lineupLocked?'🔒 참가자 고정됨':'🔓 참가자 고정')+'</button>':'')
       +(g?'<button class="ghost sm noprint" data-act="respin" data-id="'+r.id+'">종목 다시</button>':'')
       +'<button class="danger sm noprint" data-act="delRound" data-id="'+r.id+'">삭제</button>'
       +'</div><div class="rbody">'+roundStepsHTML(r)+stageBody
@@ -4799,6 +4856,19 @@ document.addEventListener('click',e=>{
   else if(act==='respin'){
     // 기존 종목을 서버에서 지우지 않고 새 룰렛 결과가 나온 순간에만 교체합니다.
     openGameRoulette(r,true); return; }
+  else if(act==='toggleLineupLock'){
+    if(!r||!r.gameId)return;
+    if(r.lineupLocked){
+      resetLineupLock(r);
+      toast('참가자 고정을 해제했습니다.');
+    }else{
+      if(!hasAssignedLineup(r)){toast('먼저 한 명 이상 참가자를 뽑거나 수동 선택해주세요.');return;}
+      r.lineupLocked=true;
+      r.lineupLockGameId=r.gameId;
+      r.lockedLineups=cloneLineupMap(r.lineups);
+      toast('참가자를 고정했습니다. 대진/순번을 다시 뽑아도 유지됩니다.');
+    }
+  }
   else if(act==='rMatch'){ rouletteMatch(r); return; }
   else if(act==='rLineup'){ rouletteLineup(r,cid,false); return; }
   else if(act==='rLineupBurst'){ rouletteLineup(r,cid,true); return; }
@@ -4869,7 +4939,7 @@ document.addEventListener('click',e=>{
     S.rounds.forEach(x=>{x.winners=[];x.semiWinners=[null,null];}); lastChamp=null; }
   else if(act==='addGame'){ S.games.push({id:uid(),name:'새 종목',perTeam:0,note:'',appearanceLimitException:false,enabled:true}); }
   else if(act==='delGame'){ S.games=S.games.filter(g=>g.id!==id);
-    S.rounds.forEach(x=>{if(x.gameId===id){x.gameId=null;x.stage='game';x.lineups={};x.winners=[];x.semiWinners=[null,null];}}); }
+    S.rounds.forEach(x=>{if(x.gameId===id){resetLineupLock(x);x.gameId=null;x.stage='game';x.lineups={};x.winners=[];x.semiWinners=[null,null];}}); }
   else if(act==='addCrew'){ S.crews.push({id:uid(),name:'새 크루',color:PALETTE[S.crews.length%PALETTE.length],banner:null,allowThirdAppearance:false,members:[]}); }
   else if(act==='delCrew'){ if(!confirm('이 크루를 삭제할까요?')) return;
     S.crews=S.crews.filter(c=>c.id!==id);
@@ -4912,7 +4982,7 @@ document.addEventListener('change',e=>{
   if((needsRound&&!r)||(needsGame&&!g)||(needsCrew&&!c)){ render(); return; }
   if(act==='setGame'){
     r.gameId=t.value||null; r.stage=r.gameId?'match':'game'; r.order=null;
-    r.teams=r.mode==='all'?null:defaultTeams(r.mode); clearRoundResult(r);
+    r.teams=r.mode==='all'?null:defaultTeams(r.mode); resetLineupLock(r); clearRoundResult(r,{forceClearLineups:true});
   }
   else if(act==='setMode'){
     if(t.value==='semi'&&S.crews.length<4){
@@ -4933,7 +5003,7 @@ document.addEventListener('change',e=>{
     clearRoundResult(r); }
   else if(act==='gName'){ g.name=t.value; }
   else if(act==='gNum'){ g.perTeam=Math.max(0,parseInt(t.value)||0);
-    S.rounds.forEach(x=>{ if(x.gameId===g.id){x.lineups={};x.winners=[];x.semiWinners=[null,null];} }); }
+    S.rounds.forEach(x=>{ if(x.gameId===g.id){resetLineupLock(x);x.lineups={};x.winners=[];x.semiWinners=[null,null];} }); }
   else if(act==='gNote'){ g.note=t.value; }
   else if(act==='gAppearanceException'){ g.appearanceLimitException=!!t.checked; }
   else if(act==='gOn'){ g.enabled=t.checked; }
@@ -5631,7 +5701,7 @@ renderBroadcastOverlay=function(initial){
       const done=PR.index>=PR.selected.length;
       if(done){
         const r=S.rounds.find(x=>x.id===PR.roundId);
-        if(r){ r.lineups[PR.cid]=PR.selected.slice(); PR.applied=true; render(); showEntryShowcaseForCrew(r,PR.cid); }
+        if(r){ r.lineups[PR.cid]=PR.selected.slice(); rememberLockedLineup(r,PR.cid); PR.applied=true; render(); showEntryShowcaseForCrew(r,PR.cid); }
         document.getElementById('prStatus').textContent='출전자 '+PR.selected.length+'명 확정';
         document.getElementById('prDoneBtn').style.display='';
         document.getElementById('prCancelBtn').style.display='none';

@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>크루 대항 종합게임</title>
-<meta name="app-build" content="auto-appearance-expansion-v27-20260825">
+<meta name="app-build" content="individual-player-reroll-v28-20260825">
 <meta name="description" content="크루 대항 종합게임 - 대진 룰렛, 종목 슬롯머신, 출전자 추첨, 실시간 전광판">
 <meta property="og:title" content="크루 대항 종합게임">
 <meta property="og:description" content="대진 룰렛 · 종목 슬롯머신 · 출전자 추첨 · 실시간 전광판">
@@ -2149,7 +2149,7 @@ body.broadcast-overlay-mode #boSceneMatch .bo-lineup-wait{
   .crew-limit-control{display:inline-flex;align-items:center;gap:6px;padding:5px 8px;border:1px solid #354158;border-radius:8px;background:#101620;color:#aab8ca;font-size:11px;font-weight:850;white-space:nowrap}
   .crew-limit-control input{width:55px!important;padding:4px 5px!important;text-align:center;font-size:11px!important}
 </style>
-<!-- app-build: auto-appearance-expansion-v27-20260825 -->
+<!-- app-build: individual-player-reroll-v28-20260825 -->
 </head>
 <body data-active-tab="board">
 
@@ -6300,6 +6300,245 @@ boRenderMatch=function(active){
 };
 
 initApp();
+
+
+/* ===== v28: individual player reroll ===== */
+(function(){
+  if(window.__V28_INDIVIDUAL_REROLL__) return;
+  window.__V28_INDIVIDUAL_REROLL__=true;
+
+  const style=document.createElement('style');
+  style.id='v28IndividualRerollStyles';
+  style.textContent=`
+    .pl{position:relative}
+    .pl-reroll{
+      position:absolute;right:1px;top:-2px;width:20px;height:20px;min-width:20px;padding:0;
+      display:flex;align-items:center;justify-content:center;border-radius:999px;
+      border:1px solid #53627a;background:#182131;color:#dbe8ff;font-size:12px;font-weight:950;
+      line-height:1;box-shadow:0 2px 8px rgba(0,0,0,.34);cursor:pointer;z-index:2
+    }
+    .pl-reroll:hover{border-color:#89a9d8;background:#223149;color:#fff;transform:translateY(-1px)}
+    .pr-picked-card{position:relative;padding-right:8px}
+    .pr-picked-reroll{
+      width:22px;height:22px;min-width:22px;padding:0;margin-left:1px;display:flex;align-items:center;justify-content:center;
+      border-radius:999px;border:1px solid color-mix(in srgb,var(--pr-main) 48%,#40506a);
+      background:rgba(25,34,48,.94);color:#dcecff;font-size:13px;font-weight:950;line-height:1;cursor:pointer
+    }
+    .pr-picked-reroll:hover{background:color-mix(in srgb,var(--pr-main) 24%,#182231);border-color:var(--pr-main);color:#fff}
+    .pr-picked-reroll:disabled{opacity:.35;cursor:not-allowed;transform:none}
+  `;
+  document.head.appendChild(style);
+
+  function v28ReplacementPools(r,cid,excluded){
+    const c=crew(cid); if(!r||!c)return {strict:[],fallback:[]};
+    const block=excluded instanceof Set?excluded:new Set(excluded||[]);
+    const strict=(c.members||[]).filter(m=>!block.has(m.id)&&memberAutoEligible(r,cid,m.id));
+    const fallback=(c.members||[]).filter(m=>!block.has(m.id)&&memberWithinAppearanceLimit(r,cid,m.id)&&memberWasInPreviousRound(r,cid,m.id));
+    return {strict,fallback};
+  }
+
+  function v28EnsureReplacementCapacity(r,cid,excluded){
+    const c=crew(cid); if(!r||!c)return 0;
+    let pools=v28ReplacementPools(r,cid,excluded);
+    if(pools.strict.length||pools.fallback.length)return 0;
+    if(roundAppearanceLimitException(r))return 0;
+
+    const block=excluded instanceof Set?excluded:new Set(excluded||[]);
+    const selectable=(c.members||[]).filter(m=>!block.has(m.id)&&memberBaseAppearanceLimit(cid,m.id)>0);
+    if(!selectable.length)return 0;
+
+    let added=0;
+    while(!pools.strict.length&&!pools.fallback.length&&crewAppearanceAutoBonus(cid)<99){
+      c.appearanceAutoBonus=crewAppearanceAutoBonus(cid)+1;
+      added++;
+      pools=v28ReplacementPools(r,cid,block);
+    }
+    if(added){
+      save();
+      toast(c.name+' 교체 후보가 부족해 자동 출전 한도를 +'+added+'회 확장했습니다.');
+    }
+    return added;
+  }
+
+  function v28PickReplacement(r,cid,oldMid,currentIds){
+    const c=crew(cid); if(!r||!c)return null;
+    const excluded=new Set((currentIds||[]).filter(Boolean));
+    excluded.delete(oldMid);
+    // 다시 뽑기에서 방금 빠진 선수 본인이 즉시 다시 나오는 것은 막습니다.
+    excluded.add(oldMid);
+
+    v28EnsureReplacementCapacity(r,cid,excluded);
+    const pools=v28ReplacementPools(r,cid,excluded);
+    let pool=[];
+    if(pools.strict.length){
+      pool=pools.strict.map(m=>({id:m.id,w:Math.max(.0001,recentMemberWeight(r,cid,m.id))}));
+    }else if(pools.fallback.length){
+      pool=pools.fallback.map(m=>({id:m.id,w:Math.max(.0001,fallbackMemberWeight(r,cid,m.id))}));
+    }
+    if(!pool.length)return null;
+    const picked=drawWeightedPool(pool,1);
+    return picked.length?picked[0]:null;
+  }
+
+  const originalPlayRevealAnimation=playRevealAnimation;
+  playRevealAnimation=function(m,idx,total,onSettled,replaceIndex){
+    const replacing=Number.isInteger(replaceIndex)&&replaceIndex>=0;
+    if(!replacing)return originalPlayRevealAnimation(m,idx,total,onSettled);
+
+    const stage=document.getElementById('prStage');
+    PR.spinning=true;
+    resetPRVisual();
+    document.getElementById('prNextBtn').style.display='none';
+    document.getElementById('prDoneBtn').style.display='none';
+    document.getElementById('prCancelBtn').style.display='none';
+    document.getElementById('prCount').innerHTML='<b>'+(idx+1)+'</b> / '+total;
+    document.getElementById('prStatus').textContent='선수 다시 뽑는 중…';
+
+    prLater(()=>{stage.classList.add('is-charging');blip(390,0.18,'sine',0.035);},180);
+    prLater(()=>{blip(620,0.16,'triangle',0.045);setTimeout(()=>blip(810,0.14,'triangle',0.04),130);},1080);
+    prLater(()=>{stage.classList.remove('is-charging');stage.classList.add('is-flash');blip(1040,0.12,'triangle',0.07);},1750);
+    prLater(()=>{
+      const photo=document.getElementById('prPhoto');
+      const initial=document.getElementById('prInitial');
+      const fallback=referencePhotoForName(m.name);
+      const src=m.photo||fallback;
+      if(src){
+        initial.style.display='none';photo.style.display='block';photo.dataset.name=m.name||'';photo.alt=m.name||'';
+        let triedFallback=false;
+        photo.onerror=()=>{
+          if(!triedFallback&&fallback&&photo.src!==fallback){triedFallback=true;photo.src=fallback;return;}
+          photo.style.display='none';initial.textContent=(m.name||'?').trim().charAt(0)||'?';initial.style.display='flex';
+        };
+        photo.src=profileSrc(src);
+      }else{
+        photo.style.display='none';initial.textContent=(m.name||'?').trim().charAt(0)||'?';initial.style.display='flex';
+      }
+      document.getElementById('prPlayerName').textContent=m.name||'선수';
+      stage.classList.remove('is-flash');stage.classList.add('is-revealed');dingdong();
+    },2050);
+    prLater(()=>{
+      PR.revealed=Array.isArray(PR.revealed)?PR.revealed:[];
+      PR.revealed[replaceIndex]=m.id;
+      PR.spinning=false;
+      renderPRPicked();
+      if(onSettled)onSettled();
+    },2950);
+  };
+
+  renderPRPicked=function(){
+    const el=document.getElementById('prPicked'); if(!el)return;
+    const admin=!!PR.roundId&&canEdit()&&!LIVE.active;
+    el.innerHTML=(PR.revealed||[]).map((id,pos)=>{
+      const m=prMember(id); if(!m)return '';
+      const btn=admin?'<button type="button" class="pr-picked-reroll noprint" data-pr-reroll="'+pos+'" title="이 선수만 다시 뽑기">↻</button>':'';
+      return '<div class="pr-picked-card">'+prAvatarMini(m)+'<span>'+esc(m.name)+'</span>'+btn+'</div>';
+    }).join('');
+  };
+
+  function v28FinishReplacement(pos,newMid){
+    const r=S.rounds.find(x=>x.id===PR.roundId);
+    if(PR.applied&&r){
+      r.lineups[PR.cid]=PR.selected.slice();
+      rememberLockedLineup(r,PR.cid);
+      render();
+    }
+    const m=prMember(newMid);
+    document.getElementById('prStatus').textContent=(m?m.name:'선수')+'로 교체 완료';
+    if(PR.applied||PR.index>=PR.selected.length){
+      document.getElementById('prDoneBtn').style.display='';
+      document.getElementById('prCancelBtn').style.display='none';
+    }else if(PR.auto){
+      prLater(revealNextPlayer,850);
+    }else{
+      const b=document.getElementById('prNextBtn');
+      b.textContent='다음 선수 추첨 ('+(PR.index+1)+'/'+PR.selected.length+')';
+      b.style.display='';
+      document.getElementById('prCancelBtn').style.display='';
+      document.getElementById('prCancelBtn').textContent='추첨 취소';
+    }
+  }
+
+  function v28RerollSlot(pos){
+    if(PR.spinning||!PR.roundId||!canEdit())return;
+    const r=S.rounds.find(x=>x.id===PR.roundId),c=crew(PR.cid);
+    if(!r||!c)return;
+    pos=Number(pos);
+    if(!Number.isInteger(pos)||pos<0||pos>=PR.selected.length)return;
+    const oldMid=PR.selected[pos];
+    const newMid=v28PickReplacement(r,PR.cid,oldMid,PR.selected);
+    if(!newMid){toast('이 선수를 대신할 수 있는 다른 룰렛 후보가 없습니다.');return;}
+    const m=c.members.find(x=>x.id===newMid); if(!m)return;
+
+    clearPRTimers();
+    PR.selected[pos]=newMid;
+    document.getElementById('prNextBtn').style.display='none';
+    document.getElementById('prDoneBtn').style.display='none';
+    document.getElementById('prCancelBtn').style.display='none';
+
+    sendDraw({kind:'player',phase:'reveal',index:pos,total:PR.selected.length,replaceIndex:pos,
+      member:{id:m.id,name:m.name,photo:m.photo||null}});
+    playRevealAnimation(m,pos,PR.selected.length,()=>v28FinishReplacement(pos,newMid),pos);
+  }
+
+  const oldRevealPlayerView=revealPlayerView;
+  revealPlayerView=function(p){
+    if(!p||!Number.isInteger(Number(p.replaceIndex)))return oldRevealPlayerView(p);
+    const m=p.member;if(!m||PR.spinning)return;
+    const pos=Number(p.replaceIndex);
+    PR.cache=PR.cache||{};PR.cache[m.id]=m;PR.total=p.total||PR.total||1;
+    playRevealAnimation(m,p.index||pos,PR.total,()=>{
+      document.getElementById('prStatus').textContent='선수 교체 완료';
+    },pos);
+  };
+
+  function v28OpenExistingReroll(r,cid,mid){
+    if(!r||PR.spinning)return;
+    const c=crew(cid),ids=((r.lineups||{})[cid]||[]).slice();
+    if(!c||!ids.length)return;
+    const pos=ids.indexOf(mid);if(pos<0)return;
+
+    clearPRTimers();
+    PR.roundId=r.id;PR.cid=cid;PR.auto=false;PR.index=ids.length;
+    PR.selected=ids.slice();PR.revealed=ids.slice();PR.spinning=false;PR.applied=true;
+    applyPlayerRevealTheme(c);setPRCrewHeader(c);resetPRVisual();renderPRPicked();
+    document.getElementById('prCount').innerHTML='<b>'+(pos+1)+'</b> / '+ids.length;
+    document.getElementById('prNextBtn').style.display='none';
+    document.getElementById('prDoneBtn').style.display='none';
+    document.getElementById('prCancelBtn').style.display='none';
+    document.getElementById('prStatus').textContent='선택한 선수만 다시 뽑습니다.';
+    const modal=document.getElementById('playerRevealModal');
+    modal.classList.add('on');modal.setAttribute('aria-hidden','false');
+    sendDraw({kind:'player',phase:'open',total:ids.length,crew:{id:c.id,name:c.name,color:c.color,banner:c.banner||null}});
+    prLater(()=>v28RerollSlot(pos),180);
+  }
+
+  rosterHTML=function(r,cid){
+    const g=game(r.gameId);
+    if(!g)return '<span class="hint">종목 미정</span>';
+    if(!Number(g.perTeam))return '<span class="hint">인원 제한 없음 · 전원 참여</span>';
+    const c=crew(cid),ids=(r.lineups&&r.lineups[cid])||[];
+    if(!c||!ids.length)return '<span class="hint">출전자 미배정</span>';
+    const rerollable=canEdit();
+    return ids.map(id=>{
+      const m=c.members.find(x=>x.id===id); if(!m)return '';
+      const btn=rerollable?'<button type="button" class="pl-reroll noprint" data-one-reroll="1" data-id="'+r.id+'" data-cid="'+cid+'" data-mid="'+id+'" title="'+esc(m.name)+'만 다시 뽑기">↻</button>':'';
+      return '<div class="pl">'+avatar(m)+'<span>'+esc(m.name)+'</span>'+btn+'</div>';
+    }).join('');
+  };
+
+  document.getElementById('prPicked').addEventListener('click',e=>{
+    const b=e.target.closest('[data-pr-reroll]');if(!b)return;
+    e.preventDefault();e.stopPropagation();v28RerollSlot(Number(b.dataset.prReroll));
+  });
+
+  document.addEventListener('click',e=>{
+    const b=e.target.closest('[data-one-reroll]');if(!b)return;
+    e.preventDefault();e.stopPropagation();
+    if(SUPABASE_READY&&!currentUser){toast('관리자 로그인 후 수정할 수 있습니다.');return;}
+    const r=S.rounds.find(x=>x.id===b.dataset.id);if(!r)return;
+    v28OpenExistingReroll(r,b.dataset.cid,b.dataset.mid);
+  },true);
+})();
 </script>
 </body>
 </html>

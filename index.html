@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>크루 대항 종합게임</title>
-<meta name="app-build" content="game-fixed-setup-v20-20260825">
+<meta name="app-build" content="manual-appearance-limits-v22-20260825">
 <meta name="description" content="크루 대항 종합게임 - 대진 룰렛, 종목 슬롯머신, 출전자 추첨, 실시간 전광판">
 <meta property="og:title" content="크루 대항 종합게임">
 <meta property="og:description" content="대진 룰렛 · 종목 슬롯머신 · 출전자 추첨 · 실시간 전광판">
@@ -2133,8 +2133,20 @@ body.broadcast-overlay-mode #boSceneMatch .bo-lineup-wait{
     border:1px solid #245d78;background:#102835;color:#8bdcff;font-size:11px;font-weight:900;white-space:nowrap}
   .setup.matchup-locked select:disabled,.setup.matchup-locked button:disabled{opacity:.58;cursor:not-allowed}
 
+
+
+  /* v22 · 출전 횟수 현황 / 수동 룰렛 제한 */
+  .appearance-left{display:inline-flex;align-items:center;justify-content:center;gap:4px;margin-top:3px;padding:3px 6px;border-radius:999px;background:#11251b;border:1px solid #245d3d;color:#7ee2a8;font-size:10px;font-weight:900;white-space:nowrap;line-height:1.2}
+  .appearance-left span,.appearance-left b{opacity:.72;font-size:9px}
+  .appearance-left.zero{background:#2a2110;border-color:#6c5420;color:#f2cc68}
+  .appearance-left.over{background:#321719;border-color:#803036;color:#ff9298}
+  .member-limit-row{display:flex;align-items:center;gap:6px;min-width:0;flex-wrap:wrap}
+  .member-limit-row label{display:inline-flex;align-items:center;gap:5px;color:#9cabc0;font-size:10px;font-weight:800;white-space:nowrap}
+  .member-limit-row input{width:58px!important;padding:4px 6px!important;font-size:11px!important;text-align:center}
+  .crew-limit-control{display:inline-flex;align-items:center;gap:6px;padding:5px 8px;border:1px solid #354158;border-radius:8px;background:#101620;color:#aab8ca;font-size:11px;font-weight:850;white-space:nowrap}
+  .crew-limit-control input{width:55px!important;padding:4px 5px!important;text-align:center;font-size:11px!important}
 </style>
-<!-- app-build: game-fixed-setup-v20-20260825 -->
+<!-- app-build: manual-appearance-limits-v22-20260825 -->
 </head>
 <body data-active-tab="board">
 
@@ -2381,7 +2393,7 @@ body.broadcast-overlay-mode #boSceneMatch .bo-lineup-wait{
   <section id="sec-games">
     <div class="card">
       <h2>종목 목록</h2>
-      <p class="sub">팀당 인원을 0으로 두면 인원 제한 없음(전원 참여)으로 처리됩니다. <b>출전 횟수 예외</b> 종목은 2회/3회 상한에서 제외됩니다. 라운드에서 <b>종목에 대진·참가자 저장</b>을 누르면 그 종목 자체에 대진과 참가자가 저장되어, 다음에 그 종목을 선택/추첨할 때 자동으로 그대로 불러옵니다.</p>
+      <p class="sub">팀당 인원을 0으로 두면 인원 제한 없음(전원 참여)으로 처리됩니다. <b>전원 참여 종목은 출전 횟수와 연속 출전 제한에서 제외</b>되어 앞·뒤 라운드 참가에 영향을 주지 않습니다. <b>출전 횟수 예외</b> 종목은 2회/3회 상한에서 제외됩니다. 라운드에서 <b>종목에 대진·참가자 저장</b>을 누르면 그 종목 자체에 대진과 참가자가 저장되어, 다음에 그 종목을 선택/추첨할 때 자동으로 그대로 불러옵니다.</p>
       <table>
         <thead><tr><th style="width:25%">종목명</th><th style="width:100px">팀당 인원</th><th>비고</th><th style="width:110px;text-align:center">출전 횟수 예외</th><th style="width:150px;text-align:center">대진·참가자 고정</th><th style="width:60px">사용</th><th style="width:56px"></th></tr></thead>
         <tbody id="gameBody"></tbody>
@@ -2518,7 +2530,7 @@ function applyReferenceRosterToCrew(c){
       id:(old[i]&&old[i].id)||uid(),
       name:r.name,
       photo:r.file,
-      appearanceLimitOverride:(old[i]&&[2,3].includes(Number(old[i].appearanceLimitOverride)))?Number(old[i].appearanceLimitOverride):null
+      appearanceLimitOverride:(old[i]&&Number.isFinite(Number(old[i].appearanceLimitOverride))&&Number(old[i].appearanceLimitOverride)>=0)?Math.min(99,Math.floor(Number(old[i].appearanceLimitOverride))):null
     }));
     return;
   }
@@ -2870,7 +2882,7 @@ async function logoutAdmin(){
 
 /* ================= state ================= */
 function defaultState(){
-  const mk=(name,color)=>({id:uid(),name,color,banner:null,allowThirdAppearance:name==='조적단',members:referenceMembers(name)});
+  const mk=(name,color)=>({id:uid(),name,color,banner:null,appearanceLimit:name==='조적단'?3:2,allowThirdAppearance:name==='조적단',members:referenceMembers(name)});
   const crews=[mk('조적단','#5b8cff'),mk('천타버스','#66e0d1'),mk('버인','#f5c451'),mk('진드기','#4fc46b')];
   const G=(name,perTeam,note)=>({id:uid(),name,perTeam,note:note||'',appearanceLimitException:false,fixedSetup:null,enabled:true});
   const games=[G('야추',0,''),G('윷놀이',0,''),G('테일즈러너',0,''),G('테트리스',0,''),G('폴가이즈',0,''),
@@ -2937,6 +2949,11 @@ function migrate(d){
     if(c.banner===undefined)c.banner=null;
     if(c.allowThirdAppearance===undefined)c.allowThirdAppearance=false;
     c.allowThirdAppearance=!!c.allowThirdAppearance;
+    // v22: 크루별 룰렛 최대 출전 횟수를 숫자로 직접 지정합니다.
+    // 기존 저장본은 3회 허용 체크 상태를 자동 변환해 호환합니다.
+    if(c.appearanceLimit===undefined || !Number.isFinite(Number(c.appearanceLimit))) c.appearanceLimit=c.allowThirdAppearance?3:2;
+    c.appearanceLimit=Math.max(0,Math.min(99,Math.floor(Number(c.appearanceLimit))));
+    c.allowThirdAppearance=c.appearanceLimit>=3; // 구버전 호환 필드
     applyReferenceRosterToCrew(c);
     // 서버 행 · JSON 복원처럼 관리자 UI 밖에서 들어온 값은 형식을 강제합니다.
     c.color=safeColor(c.color);
@@ -2944,8 +2961,9 @@ function migrate(d){
     if(Array.isArray(c.members))c.members.forEach(m=>{
       if(!m)return;
       m.photo=safeImageSrc(m.photo)||null;
-      const ov=Number(m.appearanceLimitOverride);
-      m.appearanceLimitOverride=(ov===2||ov===3)?ov:null;
+      const raw=m.appearanceLimitOverride;
+      const ov=raw===''||raw==null?NaN:Number(raw);
+      m.appearanceLimitOverride=Number.isFinite(ov)&&ov>=0?Math.min(99,Math.floor(ov)):null;
     });
   });
   // v17 최초 1회 기본 규칙 적용: 조적단 기본 3회, 조디악만 2회, 폴가이즈는 횟수 카운트 제외.
@@ -2954,6 +2972,7 @@ function migrate(d){
     const jj=(d.crews||[]).find(c=>String(c&&c.name||'').replace(/\s+/g,'').includes('조적단'));
     if(jj){
       jj.allowThirdAppearance=true;
+      jj.appearanceLimit=3;
       const zodiac=(jj.members||[]).find(m=>String(m&&m.name||'').replace(/\s+/g,'')==='조디악');
       if(zodiac)zodiac.appearanceLimitOverride=2;
     }
@@ -3066,12 +3085,12 @@ function appearCount(cid,mid){
 
 /*
  * 선수 자동 추첨 규칙
- * 1) 직전 라운드에 출전한 선수는 이번 라운드 자동 추첨에서 항상 완전 제외합니다.
- *    → "출전 횟수 예외" 종목이어도 연속 출전 금지는 절대 해제되지 않습니다.
- * 2) 기본 크루: 같은 선수는 출전 횟수에 포함되는 종목에서 최대 2회까지만 자동 출전할 수 있습니다.
- * 3) "3회 출전 허용" 크루: 기본 상한을 3회로 완화합니다.
- *    - 선수별 예외 설정(기본/2회/3회)이 있으면 크루 기본값보다 선수 설정을 우선합니다.
- *    - 현재 기본 규칙은 조적단 3회, 단 조디악은 2회입니다.
+ * 1) 일반 종목에서 직전 라운드에 출전한 선수는 이번 라운드 자동 추첨에서 완전 제외합니다.
+ *    → 단, 팀당 인원 0인 "전원 참여" 종목은 연속 출전 제한에서 제외합니다.
+ *       전원 참여 종목 직후에도 모든 선수가 다음 라운드 후보가 될 수 있습니다.
+ * 2) 크루별 기본 최대 출전 횟수는 관리자 화면에서 0~99회 범위로 직접 지정합니다.
+ * 3) 선수별 개별 최대 출전 횟수도 직접 지정할 수 있으며, 비워두면 크루 기본값을 따릅니다.
+ *    - 현재 기본 규칙은 일반 크루 2회, 조적단 3회, 단 조디악은 선수별 2회입니다.
  * 4) "출전 횟수 예외" 종목:
  *    - 해당 라운드 출전은 2회/3회 누적 횟수에 포함하지 않습니다.
  *    - 이미 출전 상한에 도달한 선수도 해당 예외 종목에서는 후보가 될 수 있습니다.
@@ -3097,26 +3116,53 @@ function memberPastAppearanceCount(r,cid,mid){
   }
   return n;
 }
+function roundIsAllParticipant(r){
+  const g=r&&r.gameId?game(r.gameId):null;
+  return !!(g&&Number(g.perTeam)===0);
+}
 function memberWasInPreviousRound(r,cid,mid){
   const idx=S.rounds.findIndex(x=>x.id===r.id);
   if(idx<=0)return false;
   const rr=S.rounds[idx-1];
+  // 전원 참여 종목은 강제 참가 성격이므로 연속 출전 제한의 연결고리에서 제외합니다.
+  // 즉, 전원 참여 종목 직후 라운드에서는 모든 선수가 다시 후보가 될 수 있습니다.
+  if(roundIsAllParticipant(rr))return false;
   const lineup=rr&&rr.lineups&&rr.lineups[cid];
   return Array.isArray(lineup)&&lineup.includes(mid);
 }
 function crewAutoAppearanceLimit(cid){
   const c=crew(cid);
-  return c&&c.allowThirdAppearance?3:2;
+  if(!c)return 2;
+  const v=Number(c.appearanceLimit);
+  if(Number.isFinite(v)&&v>=0)return Math.min(99,Math.floor(v));
+  return c.allowThirdAppearance?3:2; // 구버전 저장본 안전장치
 }
 function memberAutoAppearanceLimit(cid,mid){
   const c=crew(cid);
   const m=c&&Array.isArray(c.members)?c.members.find(x=>x.id===mid):null;
-  const ov=m?Number(m.appearanceLimitOverride):0;
-  return (ov===2||ov===3)?ov:crewAutoAppearanceLimit(cid);
+  if(m&&m.appearanceLimitOverride!==''&&m.appearanceLimitOverride!=null){
+    const ov=Number(m.appearanceLimitOverride);
+    if(Number.isFinite(ov)&&ov>=0)return Math.min(99,Math.floor(ov));
+  }
+  return crewAutoAppearanceLimit(cid);
+}
+function memberCountedAppearanceTotal(cid,mid){
+  let n=0;
+  S.rounds.forEach(r=>{
+    if(roundAppearanceLimitException(r))return;
+    const l=r&&r.lineups&&r.lineups[cid];
+    if(Array.isArray(l)&&l.includes(mid))n++;
+  });
+  return n;
+}
+function memberAppearanceStatus(cid,mid){
+  const used=memberCountedAppearanceTotal(cid,mid);
+  const limit=memberAutoAppearanceLimit(cid,mid);
+  return {used,limit,remaining:Math.max(0,limit-used),over:Math.max(0,used-limit)};
 }
 function memberAutoEligible(r,cid,mid){
   if(!r)return false;
-  if(memberWasInPreviousRound(r,cid,mid))return false; // 예외 종목 포함, 연속 출전은 항상 금지
+  if(memberWasInPreviousRound(r,cid,mid))return false; // 일반 종목끼리는 연속 출전 금지, 전원 참여 종목 직후는 예외
   if(roundAppearanceLimitException(r))return true;   // 현재 종목은 누적 출전 상한 예외
   return memberPastAppearanceCount(r,cid,mid)<memberAutoAppearanceLimit(cid,mid);
 }
@@ -4813,7 +4859,7 @@ function renderGames(){
     '<tr><td><input data-act="gName" data-id="'+g.id+'" value="'+esc(g.name)+'" class="'+(used.includes(g.id)?'used':'')+'" style="font-weight:600"></td>'
     +'<td><input type="number" min="0" max="30" data-act="gNum" data-id="'+g.id+'" value="'+(g.perTeam||0)+'"></td>'
     +'<td><input data-act="gNote" data-id="'+g.id+'" value="'+esc(g.note)+'" placeholder="예: 점수 합치기"></td>'
-    +'<td style="text-align:center"><input type="checkbox" data-act="gAppearanceException" data-id="'+g.id+'" '+(g.appearanceLimitException?'checked':'')+' title="이 종목 출전은 선수당 2회/3회 제한에 포함하지 않습니다. 직전 라운드 연속 출전 금지는 유지됩니다." style="width:18px;height:18px"></td>'
+    +'<td style="text-align:center"><input type="checkbox" data-act="gAppearanceException" data-id="'+g.id+'" '+(g.appearanceLimitException?'checked':'')+' title="이 종목 출전은 선수당 2회/3회 제한에 포함하지 않습니다. 단, 팀당 인원 0(전원 참여) 종목은 연속 출전 제한에서도 제외됩니다." style="width:18px;height:18px"></td>'
     +'<td style="text-align:center">'+(gameHasFixedSetup(g)?'<span class="lineup-lock-badge">🔒 저장됨</span> <button class="ghost sm noprint" data-act="clearGameFixedSetup" data-id="'+g.id+'">해제</button>':'<span class="hint">미설정</span>')+'</td>'
     +'<td style="text-align:center"><input type="checkbox" data-act="gOn" data-id="'+g.id+'" '+(g.enabled?'checked':'')+' style="width:18px;height:18px"></td>'
     +'<td><button class="danger sm noprint" data-act="delGame" data-id="'+g.id+'">삭제</button></td></tr>').join('');
@@ -4840,7 +4886,12 @@ function renderCrews(){
     publicView.innerHTML=S.crews.map(c=>{
       const players=(c.members||[]).map(m=>{
         const av=avatar(m).replace('class="av"','class="crew-roster-avatar"');
-        return '<div class="crew-roster-player" title="'+esc(m.name)+'">'+av+'<div class="crew-roster-player-name">'+esc(m.name)+'</div></div>';
+        const st=memberAppearanceStatus(c.id,m.id);
+        const statusCls=st.over?' over':(st.remaining===0?' zero':'');
+        const statusText=st.over?('제한 초과 '+st.over+'회'):('남은 '+st.remaining+'회');
+        return '<div class="crew-roster-player" title="'+esc(m.name)+' · 출전 '+st.used+'/'+st.limit+'회">'+av
+          +'<div class="crew-roster-player-name">'+esc(m.name)+'</div>'
+          +'<div class="appearance-left'+statusCls+'">'+statusText+' <span>'+st.used+'/'+st.limit+'</span></div></div>';
       }).join('');
       const banner=c.banner
         ?'<img src="'+esc(c.banner)+'" alt="'+esc(c.name)+' 배너">'
@@ -4857,16 +4908,16 @@ function renderCrews(){
 
   document.getElementById('crewEdit').innerHTML=S.crews.map(c=>{
     const cards=c.members.map(m=>{
-      const ov=Number(m.appearanceLimitOverride);
-      const base=c.allowThirdAppearance?3:2;
+      const st=memberAppearanceStatus(c.id,m.id);
+      const ov=(m.appearanceLimitOverride===''||m.appearanceLimitOverride==null)?'':String(m.appearanceLimitOverride);
+      const base=crewAutoAppearanceLimit(c.id);
+      const statusCls=st.over?' over':(st.remaining===0?' zero':'');
       return '<div class="mcard"><div data-act="photo" data-id="'+c.id+'" data-mid="'+m.id+'" title="사진 올리기">'+avatar(m)+'</div>'
       +'<div style="min-width:0;flex:1;display:grid;gap:5px">'
       +'<input data-act="mName" data-id="'+c.id+'" data-mid="'+m.id+'" value="'+esc(m.name)+'">'
-      +'<select data-act="mAppearanceLimit" data-id="'+c.id+'" data-mid="'+m.id+'" title="이 선수의 최대 출전 횟수" style="padding:4px 7px;font-size:11px">'
-      +'<option value="" '+((ov!==2&&ov!==3)?'selected':'')+'>기본 · '+base+'회</option>'
-      +'<option value="2" '+(ov===2?'selected':'')+'>최대 2회</option>'
-      +'<option value="3" '+(ov===3?'selected':'')+'>최대 3회</option>'
-      +'</select></div>'
+      +'<div class="member-limit-row"><label>개별 제한 <input type="number" min="0" max="99" step="1" data-act="mAppearanceLimit" data-id="'+c.id+'" data-mid="'+m.id+'" value="'+esc(ov)+'" placeholder="'+base+'" title="비워두면 크루 기본 '+base+'회를 사용합니다. 0이면 자동 룰렛에서 제외됩니다."></label>'
+      +'<span class="appearance-left'+statusCls+'">남은 '+st.remaining+'회 <b>'+st.used+'/'+st.limit+'</b></span></div>'
+      +'</div>'
       +'<button class="x noprint" data-act="delMember" data-id="'+c.id+'" data-mid="'+m.id+'" title="삭제">×</button></div>';
     }).join('');
     const bannerPreview=c.banner
@@ -4876,8 +4927,7 @@ function renderCrews(){
       +'<input type="color" data-act="cColor" data-id="'+c.id+'" value="'+safeColor(c.color)+'">'
       +'<input class="nm" data-act="cName" data-id="'+c.id+'" value="'+esc(c.name)+'">'
       +'<span class="hint">'+c.members.length+'명 · '+winsOf(c.id)+'승</span>'
-      +'<label class="hint" style="display:inline-flex;align-items:center;gap:6px;padding:5px 8px;border:1px solid #354158;border-radius:8px;background:#101620;white-space:nowrap">'
-      +'<input type="checkbox" data-act="cAllowThird" data-id="'+c.id+'" '+(c.allowThirdAppearance?'checked':'')+' style="width:16px;height:16px;margin:0"> 3회 출전 허용</label>'
+      +'<label class="crew-limit-control">기본 최대 출전 <input type="number" min="0" max="99" step="1" data-act="cAppearanceLimit" data-id="'+c.id+'" value="'+crewAutoAppearanceLimit(c.id)+'"> 회</label>'
       +'<span class="spacer"></span>'
       +'<button class="sm noprint" data-act="addMember" data-id="'+c.id+'">+ 선수</button>'
       +'<button class="sm noprint" data-act="bulk" data-id="'+c.id+'">명단 붙여넣기</button>'
@@ -5092,7 +5142,7 @@ document.addEventListener('click',e=>{
   else if(act==='addGame'){ S.games.push({id:uid(),name:'새 종목',perTeam:0,note:'',appearanceLimitException:false,fixedSetup:null,enabled:true}); }
   else if(act==='delGame'){ S.games=S.games.filter(g=>g.id!==id);
     S.rounds.forEach(x=>{if(x.gameId===id){resetLineupLock(x);x.gameId=null;x.stage='game';x.lineups={};x.winners=[];x.semiWinners=[null,null];}}); }
-  else if(act==='addCrew'){ S.crews.push({id:uid(),name:'새 크루',color:PALETTE[S.crews.length%PALETTE.length],banner:null,allowThirdAppearance:false,members:[]}); }
+  else if(act==='addCrew'){ S.crews.push({id:uid(),name:'새 크루',color:PALETTE[S.crews.length%PALETTE.length],banner:null,appearanceLimit:2,allowThirdAppearance:false,members:[]}); }
   else if(act==='delCrew'){ if(!confirm('이 크루를 삭제할까요?')) return;
     S.crews=S.crews.filter(c=>c.id!==id);
     S.rounds.forEach(x=>{ x.winners=x.winners.filter(w=>w!==id); delete x.lineups[id];
@@ -5172,8 +5222,18 @@ document.addEventListener('change',e=>{
   else if(act==='gOn'){ g.enabled=t.checked; }
   else if(act==='cName'){ c.name=t.value; }
   else if(act==='cColor'){ c.color=t.value; }
-  else if(act==='cAllowThird'){ c.allowThirdAppearance=!!t.checked; }
-  else if(act==='mAppearanceLimit'){ const m=c.members.find(x=>x.id===mid); if(m){ const v=Number(t.value); m.appearanceLimitOverride=(v===2||v===3)?v:null; } }
+  else if(act==='cAppearanceLimit'){
+    const v=Math.max(0,Math.min(99,Math.floor(Number(t.value)||0)));
+    c.appearanceLimit=v; c.allowThirdAppearance=v>=3; t.value=String(v);
+  }
+  else if(act==='cAllowThird'){ c.allowThirdAppearance=!!t.checked; c.appearanceLimit=c.allowThirdAppearance?3:2; }
+  else if(act==='mAppearanceLimit'){
+    const m=c.members.find(x=>x.id===mid);
+    if(m){
+      if(String(t.value).trim()==='')m.appearanceLimitOverride=null;
+      else{ const v=Math.max(0,Math.min(99,Math.floor(Number(t.value)||0))); m.appearanceLimitOverride=v; t.value=String(v); }
+    }
+  }
   else if(act==='mName'){ const m=c.members.find(x=>x.id===mid); if(m) m.name=t.value; }
   else return;
   render();

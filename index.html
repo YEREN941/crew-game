@@ -512,10 +512,12 @@
   .toast.on{opacity:1;bottom:34px}
 
   /* Supabase 동기화 / 관리자 */
-  .syncpill{font-size:11.5px;padding:4px 9px;border-radius:999px;border:1px solid var(--line);color:var(--muted);background:#101620;white-space:nowrap}
-  .syncpill.ok{color:#8ce8bd;border-color:#28543f;background:#10251c}
-  .syncpill.busy{color:#a9c3ff;border-color:#30456f;background:#121c31}
-  .syncpill.err{color:#ffaaaa;border-color:#5a2e32;background:#2b171a}
+  .syncpill{position:fixed;right:10px;bottom:10px;z-index:260;font-size:10px;line-height:1;padding:4px 7px;border-radius:999px;border:1px solid var(--line);color:var(--muted);background:rgba(16,22,32,.88);white-space:nowrap;pointer-events:none;opacity:.82;box-shadow:0 3px 14px rgba(0,0,0,.22);backdrop-filter:blur(6px)}
+  .syncpill::before{content:'•';margin-right:4px;font-size:12px;vertical-align:-.5px}
+  .syncpill.ok{color:#8ce8bd;border-color:#28543f;background:rgba(16,37,28,.9)}
+  .syncpill.busy{color:#a9c3ff;border-color:#30456f;background:rgba(18,28,49,.9)}
+  .syncpill.err{color:#ffaaaa;border-color:#5a2e32;background:rgba(43,23,26,.92)}
+  @media(max-width:700px){.syncpill{right:6px;bottom:6px;font-size:9px;padding:3px 6px}}
   dialog.authdlg{width:min(410px,calc(100vw - 28px));border:1px solid var(--line);border-radius:16px;background:var(--panel);color:var(--txt);padding:0;box-shadow:0 24px 80px rgba(0,0,0,.55)}
   dialog.authdlg::backdrop{background:rgba(0,0,0,.66);backdrop-filter:blur(3px)}
   .authbox{padding:20px;display:grid;gap:9px}
@@ -2381,6 +2383,7 @@ body.broadcast-overlay-mode #boSceneMatch .bo-lineup-wait{
     <div class="card noprint">
       <div class="row">
         <button class="primary" data-act="addRound">+ 라운드 추가</button>
+        <button class="ghost sm" data-act="reuseGames" id="reuseGamesBtn" hidden title="현재 사이클에서 사용한 종목을 다시 룰렛 후보로 엽니다. 기존 라운드 기록은 유지됩니다.">↻ 종목 재사용</button>
         <span class="spacer"></span>
         <button class="danger sm" data-act="deleteAllRounds">라운드 일괄 삭제</button>
         <button class="danger sm" data-act="resetResults">결과 초기화</button>
@@ -2567,6 +2570,9 @@ let sb=null,currentUser=null,remoteChannel=null,remoteSaveTimer=null,applyingRem
 let crewEditMode=false;
 let remoteSaveInFlight=false,remoteSaveQueued=false,pendingRemoteState=null;
 let remoteSeq=0;
+let remoteDirty=false,remoteLocalVersion=0,remoteSaveRetryTimer=null,remoteSaveRetryAttempt=0;
+let remoteRecoveryTimer=null,remoteRecoveryAttempt=0,remoteHealthTimer=null,remoteRealtimeConnected=false,remoteLastSeenUpdatedAt=null,remoteLastLocalSavedAt=0;
+const REMOTE_RETRY_DELAYS=[1000,3000,7000,15000,30000];
 const SYNC_CLIENT_ID=(()=>{
   try{
     let id=sessionStorage.getItem('crew-tournament-client-id');
@@ -2610,9 +2616,12 @@ function applyRemoteState(d,label){
   setSyncState(label||'실시간 동기화','ok');
 }
 function flushPendingRemote(){
-  if(!pendingRemoteState||interactionBusy()||remoteSaveInFlight||remoteSaveTimer)return;
+  if(!pendingRemoteState||interactionBusy()||remoteSaveInFlight||remoteSaveTimer||remoteDirty)return;
   const d=pendingRemoteState; pendingRemoteState=null;
-  applyRemoteState(d,'실시간 동기화');
+  const meta=d&&d.__sync||{};
+  // 내가 방금 성공적으로 저장한 상태보다 오래된 다른 관리자 이벤트는 되감지 않습니다.
+  if(currentUser&&meta.savedAt&&Number(meta.savedAt)<=remoteLastLocalSavedAt)return;
+  applyRemoteState(d,'동기화 정상');
 }
 function setSyncState(text,kind){
   const el=document.getElementById('syncState'); if(!el)return;
@@ -2642,56 +2651,137 @@ function initSupabaseClient(){
   sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY);
   return sb;
 }
-async function loadRemoteState(){
+async function loadRemoteState(opt){
+  opt=opt||{};
   if(!sb)return false;
-  setSyncState('서버 불러오는 중','busy');
+  if(!opt.quiet)setSyncState('서버 확인 중','busy');
   try{
     const query=sb.from(SB_TABLE).select('data,updated_at').eq('id',SB_STATE_ID).maybeSingle();
     const timeout=new Promise((_,reject)=>setTimeout(()=>reject(new Error('SERVER_TIMEOUT')),6500));
     const {data,error}=await Promise.race([query,timeout]);
     if(error)throw error;
     if(data&&validState(data.data)){
-      applyRemoteState(data.data,'서버 동기화');
+      const stamp=data.updated_at||null;
+      // 관람자/OBS의 주기 점검에서는 서버가 실제로 바뀐 경우에만 다시 렌더합니다.
+      if(opt.onlyIfNewer&&stamp&&remoteLastSeenUpdatedAt===stamp){
+        if(remoteRealtimeConnected)setSyncState('동기화 정상','ok');
+        return true;
+      }
+      remoteLastSeenUpdatedAt=stamp||remoteLastSeenUpdatedAt;
+      // 관리자가 아직 서버에 못 올린 변경을 들고 있으면 오래된 서버 상태로 덮지 않습니다.
+      if(currentUser&&remoteDirty){
+        setSyncState('저장 재시도 중','busy');
+        return true;
+      }
+      applyRemoteState(data.data,opt.label||'동기화 정상');
       return true;
     }
     if(data&&data.data&&!validState(data.data)){
       console.warn('손상되거나 비어 있는 서버 상태를 무시했습니다.',data.data);
-      setSyncState('서버 데이터 복구 필요 · 로컬 사용','err');
+      setSyncState('서버 데이터 오류','err');
+      if(!remoteRealtimeConnected)scheduleRemoteRecovery();
       return false;
     }
-    setSyncState('서버 데이터 없음 · 로컬 사용','busy');
+    if(!opt.quiet)setSyncState('서버 데이터 없음','busy');
     return false;
   }catch(error){
     console.error(error);
-    if(error&&error.message==='SERVER_TIMEOUT')setSyncState('서버 응답 지연 · 로컬 사용','err');
-    else setSyncState('DB 읽기 실패 · 로컬 사용','err');
+    setSyncState(remoteRealtimeConnected?'서버 재확인 중':'서버 재연결 중','busy');
+    if(!remoteRealtimeConnected)scheduleRemoteRecovery();
     return false;
   }
 }
-async function saveRemote(){
+function clearRemoteSaveRetry(){
+  if(remoteSaveRetryTimer){clearTimeout(remoteSaveRetryTimer);remoteSaveRetryTimer=null;}
+}
+function scheduleRemoteSaveRetry(){
+  if(!sb||!currentUser||!remoteDirty||remoteSaveRetryTimer)return;
+  const delay=REMOTE_RETRY_DELAYS[Math.min(remoteSaveRetryAttempt,REMOTE_RETRY_DELAYS.length-1)];
+  remoteSaveRetryAttempt++;
+  setSyncState('저장 재시도 중','busy');
+  remoteSaveRetryTimer=setTimeout(()=>{
+    remoteSaveRetryTimer=null;
+    saveRemote(true);
+  },delay);
+}
+async function saveRemote(isRetry){
   remoteSaveTimer=null;
-  if(!sb||!currentUser||applyingRemote)return;
-  // 저장 요청은 한 번에 하나만 보냅니다. 이전 요청이 끝나기 전에 변경되면 최신 상태를 한 번 더 저장합니다.
-  if(remoteSaveInFlight){remoteSaveQueued=true;return;}
-  remoteSaveInFlight=true; remoteSaveQueued=false; setSyncState('저장 중','busy');
+  if(!sb||!currentUser||applyingRemote)return false;
+  if(remoteSaveInFlight){remoteSaveQueued=true;return false;}
+  remoteSaveInFlight=true; remoteSaveQueued=false;
+  const snapshotVersion=remoteLocalVersion;
+  setSyncState(isRetry?'저장 재시도 중':'저장 중','busy');
   const snapshot=cloneState(S);
-  snapshot.__sync={clientId:SYNC_CLIENT_ID,seq:++remoteSeq,savedAt:Date.now()};
+  const updatedAt=new Date().toISOString();
+  const localSavedAt=Date.now();
+  snapshot.__sync={clientId:SYNC_CLIENT_ID,seq:++remoteSeq,savedAt:localSavedAt};
+  let ok=false;
   try{
-    const {error}=await sb.from(SB_TABLE).upsert({id:SB_STATE_ID,data:snapshot,updated_at:new Date().toISOString()},{onConflict:'id'});
+    const query=sb.from(SB_TABLE).upsert({id:SB_STATE_ID,data:snapshot,updated_at:updatedAt},{onConflict:'id'});
+    const timeout=new Promise((_,reject)=>setTimeout(()=>reject(new Error('SAVE_TIMEOUT')),6500));
+    const {error}=await Promise.race([query,timeout]);
     if(error)throw error;
-    setSyncState('저장 완료','ok');
+    ok=true;
+    remoteLastSeenUpdatedAt=updatedAt;
+    remoteLastLocalSavedAt=Math.max(remoteLastLocalSavedAt,localSavedAt);
+    if(snapshotVersion===remoteLocalVersion)remoteDirty=false;
+    remoteSaveRetryAttempt=0; clearRemoteSaveRetry();
+    setSyncState(remoteRealtimeConnected?'동기화 정상':'저장됨 · 재연결 중',remoteRealtimeConnected?'ok':'busy');
   }catch(error){
-    console.error(error);setSyncState('저장 실패','err');toast('Supabase 저장 실패: '+error.message);
+    console.error(error);
+    remoteDirty=true;
+    setSyncState('저장 재시도 중','busy');
+    if(!isRetry)toast('서버 저장이 지연되어 자동 재시도합니다.');
+    scheduleRemoteSaveRetry();
+    if(!remoteRealtimeConnected)scheduleRemoteRecovery();
   }finally{
     remoteSaveInFlight=false;
-    if(remoteSaveQueued){remoteSaveQueued=false;setTimeout(saveRemote,0);}
+    if(remoteSaveQueued){remoteSaveQueued=false;setTimeout(()=>saveRemote(false),0);}
     else flushPendingRemote();
   }
+  return ok;
 }
 function queueRemoteSave(){
   if(!sb||!currentUser||applyingRemote)return;
+  remoteDirty=true; remoteLocalVersion++;
   clearTimeout(remoteSaveTimer);
-  remoteSaveTimer=setTimeout(()=>{remoteSaveTimer=null;saveRemote();},350);
+  clearRemoteSaveRetry();
+  remoteSaveRetryAttempt=0;
+  remoteSaveTimer=setTimeout(()=>{remoteSaveTimer=null;saveRemote(false);},350);
+}
+function scheduleRemoteRecovery(){
+  if(!sb||remoteRealtimeConnected||remoteRecoveryTimer)return;
+  const delay=REMOTE_RETRY_DELAYS[Math.min(remoteRecoveryAttempt,REMOTE_RETRY_DELAYS.length-1)];
+  remoteRecoveryAttempt++;
+  setSyncState(currentUser&&remoteDirty?'저장 재시도 중':'서버 재연결 중','busy');
+  remoteRecoveryTimer=setTimeout(async()=>{
+    remoteRecoveryTimer=null;
+    try{
+      if(remoteChannel){
+        try{await sb.removeChannel(remoteChannel);}catch(e){}
+        remoteChannel=null;
+      }
+      subscribeRemote();
+      if(currentUser&&remoteDirty)scheduleRemoteSaveRetry();
+      else await loadRemoteState({quiet:true,onlyIfNewer:true,label:'동기화 정상'});
+    }catch(e){console.error('remote recovery error',e);scheduleRemoteRecovery();}
+  },delay);
+}
+function startRemoteHealthCheck(){
+  if(remoteHealthTimer||!sb)return;
+  remoteHealthTimer=setInterval(()=>{
+    if(!sb)return;
+    if(!remoteRealtimeConnected){scheduleRemoteRecovery();return;}
+    if(currentUser){
+      if(remoteDirty&&!remoteSaveInFlight&&!remoteSaveTimer)scheduleRemoteSaveRetry();
+      return;
+    }
+    // OBS/관람자는 Realtime 이벤트 유실에 대비해 서버의 updated_at을 가볍게 재확인합니다.
+    if(!interactionBusy()){
+      if(pendingRemoteState)flushPendingRemote();
+      if(!pendingRemoteState)loadRemoteState({quiet:true,onlyIfNewer:true,label:'동기화 정상'});
+    }
+  },15000);
 }
 function subscribeRemote(){
   if(!sb||remoteChannel)return;
@@ -2699,30 +2789,35 @@ function subscribeRemote(){
     .on('broadcast',{event:'draw'},msg=>{
       const p=msg&&msg.payload;
       if(!p||p.from===SYNC_CLIENT_ID)return;
-      // 관리자 본인 화면은 자기 애니메이션을 그대로 돌리므로 중계를 적용하지 않습니다.
       if(canEdit())return;
       try{ handleLiveDraw(p); }catch(err){ console.error('LIVE draw error',err); }
     })
     .on('postgres_changes',{event:'*',schema:'public',table:SB_TABLE,filter:'id=eq.'+SB_STATE_ID},payload=>{
       const d=payload&&payload.new&&payload.new.data; if(!validState(d))return;
+      if(payload&&payload.new&&payload.new.updated_at)remoteLastSeenUpdatedAt=payload.new.updated_at;
       const meta=d.__sync||{};
-      // 내가 저장한 Realtime echo는 다시 화면에 적용하지 않습니다.
-      // 기존 방식은 이 echo가 render()를 실행하면서 슬롯/룰렛 DOM과 객체 참조를 갈아엎어
-      // 애니메이션이 멈추거나 직전 상태로 돌아간 것처럼 보이는 원인이었습니다.
       if(meta.clientId===SYNC_CLIENT_ID){
-        setSyncState('저장 완료','ok');
+        setSyncState(remoteRealtimeConnected?'동기화 정상':'저장 완료','ok');
         return;
       }
-      // 다른 기기의 변경도 룰렛/슬롯 동작 중에는 즉시 렌더하지 않고 끝난 뒤 반영합니다.
-      if(interactionBusy()||remoteSaveInFlight||remoteSaveTimer){
+      if(interactionBusy()||remoteSaveInFlight||remoteSaveTimer||remoteDirty){
         pendingRemoteState=d; setSyncState('원격 변경 대기','busy'); return;
       }
-      applyRemoteState(d,'실시간 동기화');
+      applyRemoteState(d,'동기화 정상');
     })
     .subscribe(status=>{
-      if(status==='SUBSCRIBED')setSyncState('실시간 연결','ok');
-      else if(status==='CHANNEL_ERROR'||status==='TIMED_OUT')setSyncState('Realtime 오류','err');
+      if(status==='SUBSCRIBED'){
+        remoteRealtimeConnected=true; remoteRecoveryAttempt=0;
+        if(remoteRecoveryTimer){clearTimeout(remoteRecoveryTimer);remoteRecoveryTimer=null;}
+        setSyncState(currentUser&&remoteDirty?'저장 재시도 중':'동기화 정상',currentUser&&remoteDirty?'busy':'ok');
+        if(currentUser&&remoteDirty)scheduleRemoteSaveRetry();
+      }else if(status==='CHANNEL_ERROR'||status==='TIMED_OUT'||status==='CLOSED'){
+        remoteRealtimeConnected=false;
+        setSyncState('서버 재연결 중','busy');
+        scheduleRemoteRecovery();
+      }
     });
+  startRemoteHealthCheck();
 }
 
 /* ================= 추첨 실시간 중계 (관람 모드) =================
@@ -2877,7 +2972,7 @@ async function logoutAdmin(){
   if(!sb)return;
   closeRoulette();
   const {error}=await sb.auth.signOut(); if(error)console.error(error);
-  currentUser=null; crewEditMode=false; renderCrews(); applyAccessMode(); setSyncState('관람 모드','ok');
+  currentUser=null; remoteDirty=false; clearRemoteSaveRetry(); crewEditMode=false; renderCrews(); applyAccessMode(); setSyncState(remoteRealtimeConnected?'동기화 정상':'서버 재연결 중',remoteRealtimeConnected?'ok':'busy');
 }
 
 /* ================= state ================= */
@@ -2889,21 +2984,26 @@ function defaultState(){
     G('모두의마블',4,'4명 개인전'),G('스타 노래 맞추기',0,''),G('황새게임',4,'[무료] 점수 합치기'),
     G('죽림고수',4,'[무료] 점수 합치기'),G('컬러 타일',0,''),G('사과게임',0,''),G('파티애니멀즈',0,''),
     G('피코',0,'2분 · 가장 많이 스테이지 간 팀'),G('파워 알까기',1,'수장전')];
-  const S={title:'크루 대항 종합게임',winTarget:3,sfx:true,sfxVolume:0.35,appearanceRuleV17Initialized:true,crews,games,rounds:[]};
+  const S={title:'크루 대항 종합게임',winTarget:3,sfx:true,sfxVolume:0.35,appearanceRuleV17Initialized:true,gameCycle:0,crews,games,rounds:[]};
   const fall=games.find(g=>g.name==='폴가이즈'); if(fall)fall.appearanceLimitException=true;
   const jj=crews.find(c=>c.name==='조적단'); if(jj){ const zodiac=(jj.members||[]).find(m=>String(m.name||'').trim()==='조디악'); if(zodiac)zodiac.appearanceLimitOverride=2; }
-  S.rounds=[newRound()];
+  S.rounds=[newRound('all',0)];
   return S;
 }
-function newRound(mode){
-  return {id:uid(),mode:mode||'all',stage:'game',gameId:null,order:null,teams:null,
+function newRound(mode,gameCycle){
+  const gc=Number.isFinite(Number(gameCycle))?Math.max(0,Math.floor(Number(gameCycle))):0;
+  return {id:uid(),mode:mode||'all',stage:'game',gameId:null,order:null,teams:null,gameCycle:gc,
           matchupLocked:false,matchupLockGameId:null,lockedMatchup:null,
           lineups:{},lineupLocked:false,lineupLockGameId:null,lockedLineups:{},scores:{},semiWinners:[null,null],winners:[],memo:''};
 }
 function migrate(d){
   if(!d) return d;
   if(d.__sync)delete d.__sync;
+  if(!Number.isFinite(Number(d.gameCycle))||Number(d.gameCycle)<0)d.gameCycle=0;
+  d.gameCycle=Math.floor(Number(d.gameCycle));
   (d.rounds||[]).forEach(r=>{
+    if(!Number.isFinite(Number(r.gameCycle))||Number(r.gameCycle)<0)r.gameCycle=0;
+    r.gameCycle=Math.floor(Number(r.gameCycle));
     if(!r.mode) r.mode='all';
     if(r.mode==='2v2'){ r.mode='semi'; r.teams=null; r.winners=[]; }
     if(!Array.isArray(r.winners)) r.winners = r.winner?[r.winner]:[];
@@ -3055,8 +3155,25 @@ function championTie(){
   const c=championCandidates();
   return c.length>1&&c[0].at===c[1].at;
 }
-const usedGameIds=except=>S.rounds.filter(r=>r.id!==except&&r.gameId).map(r=>r.gameId);
-const availableGames=except=>{const u=usedGameIds(except);return S.games.filter(g=>g.enabled&&!u.includes(g.id));};
+function normalizedGameCycle(v){const n=Number(v);return Number.isFinite(n)&&n>=0?Math.floor(n):0;}
+function gameCycleForRoundId(roundId){
+  const r=roundId?S.rounds.find(x=>x.id===roundId):null;
+  return r?normalizedGameCycle(r.gameCycle):normalizedGameCycle(S.gameCycle);
+}
+const usedGameIds=(except,cycle)=>{
+  const gc=cycle==null?gameCycleForRoundId(except):normalizedGameCycle(cycle);
+  return S.rounds.filter(r=>r.id!==except&&r.gameId&&normalizedGameCycle(r.gameCycle)===gc).map(r=>r.gameId);
+};
+const availableGames=(except,cycle)=>{const u=usedGameIds(except,cycle);return S.games.filter(g=>g.enabled&&!u.includes(g.id));};
+function startNewGameReuseCycle(){
+  if(!(S.games||[]).some(g=>g.enabled)){toast('사용 가능한 종목이 없습니다.');return false;}
+  S.gameCycle=normalizedGameCycle(S.gameCycle)+1;
+  // 이미 만들어 둔 미배정 라운드는 새 종목 사이클에 편입합니다.
+  S.rounds.forEach(r=>{if(r&&!r.gameId)r.gameCycle=S.gameCycle;});
+  if(!S.rounds.some(r=>r&&!r.gameId)&&!champion())S.rounds.push(newRound('all',S.gameCycle));
+  toast('사용한 종목을 다시 룰렛 후보로 열었습니다. 기존 경기 기록은 유지됩니다.');
+  return true;
+}
 
 function defaultTeams(mode){
   const ids=S.crews.map(c=>c.id);
@@ -3129,7 +3246,7 @@ function memberPastAppearanceCount(r,cid,mid){
   let n=0;
   for(let i=0;i<end;i++){
     const rr=S.rounds[i];
-    if(rr&&rr.gameId)alreadyCountedGameIds.add(rr.gameId);
+    if(rr&&rr.gameId&&normalizedGameCycle(rr.gameCycle)===gameCycleForRoundId(r&&r.id))alreadyCountedGameIds.add(rr.gameId);
     if(roundAppearanceLimitException(rr))continue; // 예외 종목 출전은 누적 횟수에서 제외
     const lineup=rr&&rr.lineups&&rr.lineups[cid];
     if(Array.isArray(lineup)&&lineup.includes(mid))n++;
@@ -3189,8 +3306,9 @@ function memberPlayedAppearanceTotal(cid,mid){
 function memberReservedAppearanceTotal(cid,mid){
   // 이미 어느 라운드에 실제 라인업으로 들어온 고정 종목은 예약분을 다시 더하지 않습니다.
   const representedGameIds=new Set();
+  const currentCycle=normalizedGameCycle(S.gameCycle);
   S.rounds.forEach(r=>{
-    if(!r||!r.gameId)return;
+    if(!r||!r.gameId||normalizedGameCycle(r.gameCycle)!==currentCycle)return;
     const l=r.lineups&&r.lineups[cid];
     if(Array.isArray(l)&&l.includes(mid))representedGameIds.add(r.gameId);
   });
@@ -4843,6 +4961,9 @@ function setupHTML(r){
 
 function renderRounds(){
   const el=document.getElementById('roundList');
+  const reuseBtn=document.getElementById('reuseGamesBtn');
+  const enabledGames=(S.games||[]).filter(g=>g.enabled);
+  if(reuseBtn)reuseBtn.hidden=!(enabledGames.length&&availableGames(null).length===0&&!champion());
   if(!S.rounds.length){ el.innerHTML='<div class="empty">라운드를 추가해주세요.</div>'; return; }
   el.innerHTML=S.rounds.map((r,i)=>{
     const g=game(r.gameId),stage=r.stage||(!r.gameId?'game':'lineup'),done=r.winners.length>0,k=perTeamOf(r);
@@ -5113,12 +5234,17 @@ document.addEventListener('click',e=>{
 
   if(act==='toggleCrewEdit'){ crewEditMode=!crewEditMode; renderCrews(); applyAccessMode(); return; }
 
-  if(act==='addRound'){ S.rounds.push(newRound('all')); }
+  if(act==='reuseGames'){
+    if(!confirm('현재까지 사용한 종목을 다시 룰렛 후보로 열까요?\n기존 라운드·승패·참가 기록은 그대로 유지됩니다.'))return;
+    if(startNewGameReuseCycle()){render();}
+    return;
+  }
+  if(act==='addRound'){ S.rounds.push(newRound('all',S.gameCycle)); }
   else if(act==='delRound'){ S.rounds=S.rounds.filter(x=>x.id!==id); }
   else if(act==='deleteAllRounds'){
     if(!S.rounds.length){toast('삭제할 라운드가 없습니다.');return;}
     if(!confirm('등록된 모든 라운드를 삭제할까요?\n크루 · 선수 · 종목 · 설정은 유지됩니다.'))return;
-    S.rounds=[];lastChamp=null;hideVictoryStage();
+    S.rounds=[];S.gameCycle=0;lastChamp=null;hideVictoryStage();
     toast('모든 라운드를 삭제했습니다.');
   }
   else if(act==='spin'){ openGameRoulette(r,true); return; }
@@ -5223,15 +5349,15 @@ document.addEventListener('click',e=>{
     const cid2=ui===4?m1:(ui===5?m2:null);if(!cid2)return;
     const same=r.winners[0]===cid2;r.winners=same?[]:[cid2];
     blip(r.winners.length?740:320,0.1,'triangle',0.06);
-    if(r.winners.length&&S.rounds[S.rounds.length-1].id===r.id&&!champion()&&availableGames(null).length)S.rounds.push(newRound('all'));
+    if(r.winners.length&&S.rounds[S.rounds.length-1].id===r.id&&!champion())S.rounds.push(newRound('all',S.gameCycle));
   }
   else if(act==='win'){
     const ui=Number(t.dataset.ui),units=unitsOf(r),u=units[ui]||[];
     const same=u.length===r.winners.length&&u.every(x=>r.winners.includes(x));
     r.winners=same?[]:u.slice();
     blip(r.winners.length?740:320,0.1,'triangle',0.06);
-    if(r.winners.length&&S.rounds[S.rounds.length-1].id===r.id&&!champion()&&availableGames(null).length)
-      S.rounds.push(newRound('all'));
+    if(r.winners.length&&S.rounds[S.rounds.length-1].id===r.id&&!champion())
+      S.rounds.push(newRound('all',S.gameCycle));
   }
   else if(act==='clearWin'){ r.winners=[]; r.semiWinners=[null,null]; }
   else if(act==='resetResults'){ if(!confirm('모든 라운드 결과를 지울까요?')) return;
@@ -6044,7 +6170,7 @@ renderBroadcastOverlay=function(initial){
     let r=activeRound();
     if(r) return r;
     if(champion()){ toast('이미 우승이 확정되었습니다.'); return null; }
-    S.rounds.push(newRound('all')); render();
+    S.rounds.push(newRound('all',S.gameCycle)); render();
     return activeRound();
   }
   function nextLineupTarget(r){

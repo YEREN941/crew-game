@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>크루 대항 종합게임</title>
-<meta name="app-build" content="skip-all-participant-consecutive-v23-20260825">
+<meta name="app-build" content="reserved-fixed-lineups-weighted-v24-20260825">
 <meta name="description" content="크루 대항 종합게임 - 대진 룰렛, 종목 슬롯머신, 출전자 추첨, 실시간 전광판">
 <meta property="og:title" content="크루 대항 종합게임">
 <meta property="og:description" content="대진 룰렛 · 종목 슬롯머신 · 출전자 추첨 · 실시간 전광판">
@@ -2146,7 +2146,7 @@ body.broadcast-overlay-mode #boSceneMatch .bo-lineup-wait{
   .crew-limit-control{display:inline-flex;align-items:center;gap:6px;padding:5px 8px;border:1px solid #354158;border-radius:8px;background:#101620;color:#aab8ca;font-size:11px;font-weight:850;white-space:nowrap}
   .crew-limit-control input{width:55px!important;padding:4px 5px!important;text-align:center;font-size:11px!important}
 </style>
-<!-- app-build: skip-all-participant-consecutive-v23-20260825 -->
+<!-- app-build: reserved-fixed-lineups-weighted-v24-20260825 -->
 </head>
 <body data-active-tab="board">
 
@@ -3089,32 +3089,52 @@ function appearCount(cid,mid){
  *    → 팀당 인원 0인 "전원 참여" 종목은 연속 출전 판정의 연결고리에서 건너뜁니다.
  *       예: R1 일반 → R2 폴가이즈(전원) → R3 일반이면 R1과 R3은 선수 중복 금지,
  *           폴가이즈(R2)와 R3의 선수 중복은 허용됩니다.
- * 2) 크루별 기본 최대 출전 횟수는 관리자 화면에서 0~99회 범위로 직접 지정합니다.
- * 3) 선수별 개별 최대 출전 횟수도 직접 지정할 수 있으며, 비워두면 크루 기본값을 따릅니다.
- *    - 현재 기본 규칙은 일반 크루 2회, 조적단 3회, 단 조디악은 선수별 2회입니다.
- * 4) "출전 횟수 예외" 종목:
- *    - 해당 라운드 출전은 2회/3회 누적 횟수에 포함하지 않습니다.
- *    - 이미 출전 상한에 도달한 선수도 해당 예외 종목에서는 후보가 될 수 있습니다.
- *    - 단, 직전 라운드에 출전했다면 예외 종목에서도 후보에서 제외됩니다.
- * 5) 위의 하드 제한을 통과한 후보끼리는 최근 출전 간격에 따라 완만한 가중치를 적용합니다.
- *    - 2라운드 전 출전: 0.70
- *    - 3라운드 전 출전: 0.85
- *    - 그 외: 1.00
+ * 2) 크루별/선수별 최대 출전 횟수는 관리자 화면에서 직접 지정합니다.
+ * 3) 종목 자체에 저장해 둔 "고정 참가자"는 그 종목을 아직 라운드에 등록하지 않았어도
+ *    향후 출전 예약으로 간주하여 룰렛 최대 출전 횟수와 남은 횟수 계산에 미리 포함합니다.
+ *    - 해당 고정 종목이 실제 라운드에 들어오면 예약분과 실제 라인업을 중복 계산하지 않습니다.
+ *    - "출전 횟수 예외" 종목의 고정 참가자는 예약 횟수에도 포함하지 않습니다.
+ * 4) "출전 횟수 예외" 종목은 최대 출전 횟수를 소모하지 않습니다.
+ * 5) 하드 제한을 통과한 후보는 "남은 출전 가능 횟수"가 많을수록 강하게 우대합니다.
+ *    - 남은 1회 이하: ×1.0 / 2회: ×2.0 / 3회: ×3.5 / 4회 이상: ×5.0
+ *    - 최근 일반 종목 출전 간격 보정도 함께 적용: 2라운드 전 ×0.70 / 3라운드 전 ×0.85 / 그 외 ×1.00
  */
 function roundAppearanceLimitException(r){
   const g=r&&r.gameId?game(r.gameId):null;
   return !!(g&&g.appearanceLimitException);
 }
+function fixedSetupContainsMember(g,cid,mid){
+  if(!g||g.appearanceLimitException||!gameHasFixedSetup(g))return false;
+  const lineups=g.fixedSetup&&g.fixedSetup.lineups;
+  const ids=lineups&&lineups[cid];
+  return Array.isArray(ids)&&ids.includes(mid);
+}
+function fixedSetupReservationCount(cid,mid,opt){
+  opt=opt||{};
+  const skipGameIds=opt.skipGameIds instanceof Set?opt.skipGameIds:new Set(opt.skipGameIds||[]);
+  const excludeGameId=opt.excludeGameId||null;
+  let n=0;
+  (S.games||[]).forEach(g=>{
+    if(!g||g.id===excludeGameId||skipGameIds.has(g.id))return;
+    if(fixedSetupContainsMember(g,cid,mid))n++;
+  });
+  return n;
+}
 function memberPastAppearanceCount(r,cid,mid){
   const idx=S.rounds.findIndex(x=>x.id===r.id);
   const end=idx>=0?idx:S.rounds.length;
+  const alreadyCountedGameIds=new Set();
   let n=0;
   for(let i=0;i<end;i++){
     const rr=S.rounds[i];
+    if(rr&&rr.gameId)alreadyCountedGameIds.add(rr.gameId);
     if(roundAppearanceLimitException(rr))continue; // 예외 종목 출전은 누적 횟수에서 제외
     const lineup=rr&&rr.lineups&&rr.lineups[cid];
     if(Array.isArray(lineup)&&lineup.includes(mid))n++;
   }
+  // 아직 라운드에 등록되지 않은 고정 종목 참가자는 "예약 출전"으로 미리 소모합니다.
+  // 현재 추첨 중인 종목 자체의 고정값은 중복 계산하지 않습니다.
+  n+=fixedSetupReservationCount(cid,mid,{skipGameIds:alreadyCountedGameIds,excludeGameId:r&&r.gameId});
   return n;
 }
 function roundIsAllParticipant(r){
@@ -3155,7 +3175,7 @@ function memberAutoAppearanceLimit(cid,mid){
   }
   return crewAutoAppearanceLimit(cid);
 }
-function memberCountedAppearanceTotal(cid,mid){
+function memberPlayedAppearanceTotal(cid,mid){
   let n=0;
   S.rounds.forEach(r=>{
     if(roundAppearanceLimitException(r))return;
@@ -3164,10 +3184,25 @@ function memberCountedAppearanceTotal(cid,mid){
   });
   return n;
 }
+function memberReservedAppearanceTotal(cid,mid){
+  // 이미 어느 라운드에 실제 라인업으로 들어온 고정 종목은 예약분을 다시 더하지 않습니다.
+  const representedGameIds=new Set();
+  S.rounds.forEach(r=>{
+    if(!r||!r.gameId)return;
+    const l=r.lineups&&r.lineups[cid];
+    if(Array.isArray(l)&&l.includes(mid))representedGameIds.add(r.gameId);
+  });
+  return fixedSetupReservationCount(cid,mid,{skipGameIds:representedGameIds});
+}
+function memberCountedAppearanceTotal(cid,mid){
+  return memberPlayedAppearanceTotal(cid,mid)+memberReservedAppearanceTotal(cid,mid);
+}
 function memberAppearanceStatus(cid,mid){
-  const used=memberCountedAppearanceTotal(cid,mid);
+  const played=memberPlayedAppearanceTotal(cid,mid);
+  const reserved=memberReservedAppearanceTotal(cid,mid);
+  const used=played+reserved;
   const limit=memberAutoAppearanceLimit(cid,mid);
-  return {used,limit,remaining:Math.max(0,limit-used),over:Math.max(0,used-limit)};
+  return {played,reserved,used,limit,remaining:Math.max(0,limit-used),over:Math.max(0,used-limit)};
 }
 function memberAutoEligible(r,cid,mid){
   if(!r)return false;
@@ -3175,16 +3210,27 @@ function memberAutoEligible(r,cid,mid){
   if(roundAppearanceLimitException(r))return true;   // 현재 종목은 누적 출전 상한 예외
   return memberPastAppearanceCount(r,cid,mid)<memberAutoAppearanceLimit(cid,mid);
 }
+function remainingAppearanceWeight(r,cid,mid){
+  const limit=memberAutoAppearanceLimit(cid,mid);
+  const used=memberPastAppearanceCount(r,cid,mid);
+  const remaining=Math.max(0,limit-used);
+  if(remaining>=4)return 5.0;
+  if(remaining===3)return 3.5;
+  if(remaining===2)return 2.0;
+  return 1.0;
+}
 function recentMemberWeight(r,cid,mid){
   if(!memberAutoEligible(r,cid,mid))return 0;
   const idx=S.rounds.findIndex(x=>x.id===r.id);
-  if(idx<=0)return 1;
-  const r2=S.rounds[idx-2],r3=S.rounds[idx-3];
-  const l2=r2&&r2.lineups&&r2.lineups[cid];
-  const l3=r3&&r3.lineups&&r3.lineups[cid];
-  if(Array.isArray(l2)&&l2.includes(mid))return .70;
-  if(Array.isArray(l3)&&l3.includes(mid))return .85;
-  return 1;
+  let recent=1.0;
+  if(idx>0){
+    const r2=S.rounds[idx-2],r3=S.rounds[idx-3];
+    const l2=r2&&r2.lineups&&r2.lineups[cid];
+    const l3=r3&&r3.lineups&&r3.lineups[cid];
+    if(Array.isArray(l2)&&l2.includes(mid))recent=.70;
+    else if(Array.isArray(l3)&&l3.includes(mid))recent=.85;
+  }
+  return recent*remainingAppearanceWeight(r,cid,mid);
 }
 function eligibleMemberIds(r,cid){
   const c=crew(cid);if(!c)return [];
@@ -4898,9 +4944,9 @@ function renderCrews(){
         const st=memberAppearanceStatus(c.id,m.id);
         const statusCls=st.over?' over':(st.remaining===0?' zero':'');
         const statusText=st.over?('제한 초과 '+st.over+'회'):('남은 '+st.remaining+'회');
-        return '<div class="crew-roster-player" title="'+esc(m.name)+' · 출전 '+st.used+'/'+st.limit+'회">'+av
+        return '<div class="crew-roster-player" title="'+esc(m.name)+' · 반영 '+st.used+'/'+st.limit+'회 (실출전 '+st.played+' · 고정예약 '+st.reserved+')">'+av
           +'<div class="crew-roster-player-name">'+esc(m.name)+'</div>'
-          +'<div class="appearance-left'+statusCls+'">'+statusText+' <span>'+st.used+'/'+st.limit+'</span></div></div>';
+          +'<div class="appearance-left'+statusCls+'">'+statusText+' <span>'+st.used+'/'+st.limit+(st.reserved?' · 예약 '+st.reserved:'')+'</span></div></div>';
       }).join('');
       const banner=c.banner
         ?'<img src="'+esc(c.banner)+'" alt="'+esc(c.name)+' 배너">'
@@ -4925,7 +4971,7 @@ function renderCrews(){
       +'<div style="min-width:0;flex:1;display:grid;gap:5px">'
       +'<input data-act="mName" data-id="'+c.id+'" data-mid="'+m.id+'" value="'+esc(m.name)+'">'
       +'<div class="member-limit-row"><label>개별 제한 <input type="number" min="0" max="99" step="1" data-act="mAppearanceLimit" data-id="'+c.id+'" data-mid="'+m.id+'" value="'+esc(ov)+'" placeholder="'+base+'" title="비워두면 크루 기본 '+base+'회를 사용합니다. 0이면 자동 룰렛에서 제외됩니다."></label>'
-      +'<span class="appearance-left'+statusCls+'">남은 '+st.remaining+'회 <b>'+st.used+'/'+st.limit+'</b></span></div>'
+      +'<span class="appearance-left'+statusCls+'">남은 '+st.remaining+'회 <b>'+st.used+'/'+st.limit+(st.reserved?' · 예약 '+st.reserved:'')+'</b></span></div>'
       +'</div>'
       +'<button class="x noprint" data-act="delMember" data-id="'+c.id+'" data-mid="'+m.id+'" title="삭제">×</button></div>';
     }).join('');

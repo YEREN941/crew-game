@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>크루 대항 종합게임</title>
-<meta name="app-build" content="individual-player-reroll-v28-20260825">
+<meta name="app-build" content="tiered-fair-draw-v29-20260825">
 <meta name="description" content="크루 대항 종합게임 - 대진 룰렛, 종목 슬롯머신, 출전자 추첨, 실시간 전광판">
 <meta property="og:title" content="크루 대항 종합게임">
 <meta property="og:description" content="대진 룰렛 · 종목 슬롯머신 · 출전자 추첨 · 실시간 전광판">
@@ -2149,7 +2149,7 @@ body.broadcast-overlay-mode #boSceneMatch .bo-lineup-wait{
   .crew-limit-control{display:inline-flex;align-items:center;gap:6px;padding:5px 8px;border:1px solid #354158;border-radius:8px;background:#101620;color:#aab8ca;font-size:11px;font-weight:850;white-space:nowrap}
   .crew-limit-control input{width:55px!important;padding:4px 5px!important;text-align:center;font-size:11px!important}
 </style>
-<!-- app-build: individual-player-reroll-v28-20260825 -->
+<!-- app-build: tiered-fair-draw-v29-20260825 -->
 </head>
 <body data-active-tab="board">
 
@@ -3219,9 +3219,12 @@ function appearCount(cid,mid){
  *    - 해당 고정 종목이 실제 라운드에 들어오면 예약분과 실제 라인업을 중복 계산하지 않습니다.
  *    - "출전 횟수 예외" 종목의 고정 참가자는 예약 횟수에도 포함하지 않습니다.
  * 4) "출전 횟수 예외" 종목은 최대 출전 횟수를 소모하지 않습니다.
- * 5) 하드 제한을 통과한 후보는 "남은 출전 가능 횟수"가 많을수록 강하게 우대합니다.
- *    - 남은 1회 이하: ×1.0 / 2회: ×2.0 / 3회: ×3.5 / 4회 이상: ×5.0
- *    - 최근 일반 종목 출전 간격 보정도 함께 적용: 2라운드 전 ×0.70 / 3라운드 전 ×0.85 / 그 외 ×1.00
+ * 5) 자동 추첨은 "현재까지 반영된 출전 횟수"가 가장 적은 선수 그룹부터 우선 사용합니다.
+ *    - 가장 적게 출전한 그룹만으로 필요한 인원을 채우면 다음 출전 횟수 그룹은 후보에 들어오지 않습니다.
+ *    - 부족한 경우에만 다음 출전 횟수 그룹을 순서대로 개방합니다.
+ *    - 같은 출전 횟수 그룹 안에서는 최근 일반 종목 출전 간격을 보정한 랜덤 추첨을 합니다.
+ *      (2라운드 전 ×0.70 / 3라운드 전 ×0.85 / 그 외 ×1.00)
+ *    - 고정 참가 예약은 기존처럼 이미 사용 예정인 1회로 계산합니다.
  */
 function roundAppearanceLimitException(r){
   const g=r&&r.gameId?game(r.gameId):null;
@@ -3433,24 +3436,52 @@ function drawWeightedPool(pool,count){
   }
   return out;
 }
+function tieredMemberDraw(r,cid,members,count){
+  const need=Math.max(0,Math.floor(Number(count)||0));
+  if(!r||!need||!Array.isArray(members)||!members.length)return [];
+
+  // 출전 횟수(고정 예약 포함)가 적은 그룹부터 계층적으로 개방합니다.
+  const rows=members.map(m=>({
+    id:m.id,
+    used:memberPastAppearanceCount(r,cid,m.id),
+    // 같은 횟수 그룹 안에서만 최근 출전 간격 보정을 사용합니다.
+    w:Math.max(.0001,recentIntervalWeight(r,cid,m.id))
+  }));
+  const levels=[...new Set(rows.map(x=>x.used))].sort((a,b)=>a-b);
+  const out=[];
+  for(const level of levels){
+    if(out.length>=need)break;
+    const tier=rows.filter(x=>x.used===level);
+    const slots=need-out.length;
+    if(tier.length<=slots){
+      // 이 계층은 전부 필요하므로 순서만 랜덤화합니다.
+      out.push(...drawWeightedPool(tier,tier.length));
+    }else{
+      out.push(...drawWeightedPool(tier,slots));
+    }
+  }
+  return out;
+}
 function weightedMemberIds(r,cid,k){
   const c=crew(cid); if(!c) return [];
+  k=Math.max(0,Math.floor(Number(k)||0));
+  if(!k)return [];
   ensureCrewAppearanceCapacity(r,cid,k);
-  const strictPool=(c.members||[])
-    .map(m=>({id:m.id,w:recentMemberWeight(r,cid,m.id)}))
-    .filter(x=>x.w>0);
 
-  // 정상 후보가 충분하면 직전 일반 종목 출전자는 절대 후보에 넣지 않습니다.
-  if(strictPool.length>=k)return drawWeightedPool(strictPool,k);
+  const strictMembers=(c.members||[]).filter(m=>memberAutoEligible(r,cid,m.id));
 
-  // 정상 후보만으로 부족한 경우 정상 후보를 먼저 모두 사용하고,
-  // 부족분에 한해서만 직전 일반 종목 출전자를 비상 후보로 허용합니다.
-  const out=drawWeightedPool(strictPool,strictPool.length);
+  // 정상 후보가 충분하면 직전 일반 종목 출전자는 후보에 넣지 않고,
+  // 출전 횟수가 가장 적은 계층부터 필요한 인원만 뽑습니다.
+  if(strictMembers.length>=k)return tieredMemberDraw(r,cid,strictMembers,k);
+
+  // 정상 후보가 부족하면 정상 후보를 모두 사용한 뒤에만
+  // 직전 일반 종목 출전자를 비상 후보로 열고, 그 안에서도 적게 출전한 선수부터 뽑습니다.
+  const out=tieredMemberDraw(r,cid,strictMembers,strictMembers.length);
   const used=new Set(out);
-  const fallbackPool=(c.members||[])
-    .map(m=>({id:m.id,w:fallbackMemberWeight(r,cid,m.id)}))
-    .filter(x=>x.w>0&&!used.has(x.id));
-  out.push(...drawWeightedPool(fallbackPool,k-out.length));
+  const fallbackMembers=(c.members||[]).filter(m=>
+    !used.has(m.id)&&memberWithinAppearanceLimit(r,cid,m.id)&&memberWasInPreviousRound(r,cid,m.id)
+  );
+  out.push(...tieredMemberDraw(r,cid,fallbackMembers,k-out.length));
   return out;
 }
 function pickMembers(cid,k,r){
@@ -6369,14 +6400,12 @@ initApp();
 
     v28EnsureReplacementCapacity(r,cid,excluded);
     const pools=v28ReplacementPools(r,cid,excluded);
-    let pool=[];
-    if(pools.strict.length){
-      pool=pools.strict.map(m=>({id:m.id,w:Math.max(.0001,recentMemberWeight(r,cid,m.id))}));
-    }else if(pools.fallback.length){
-      pool=pools.fallback.map(m=>({id:m.id,w:Math.max(.0001,fallbackMemberWeight(r,cid,m.id))}));
-    }
-    if(!pool.length)return null;
-    const picked=drawWeightedPool(pool,1);
+    // 한 명만 다시 뽑을 때도 전체 룰렛과 같은 공정성 규칙을 적용합니다.
+    // 정상 후보가 있으면 정상 후보 안에서, 없을 때만 직전 출전자 예외 후보 안에서
+    // 현재까지 반영된 출전 횟수가 가장 적은 선수 계층을 우선합니다.
+    const source=pools.strict.length?pools.strict:pools.fallback;
+    if(!source.length)return null;
+    const picked=tieredMemberDraw(r,cid,source,1);
     return picked.length?picked[0]:null;
   }
 

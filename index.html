@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>크루 대항 종합게임</title>
-<meta name="app-build" content="title-center-v36-20260922">
+<meta name="app-build" content="draw-stage-v37-20260922">
 <meta name="description" content="크루 대항 종합게임 - 대진 룰렛, 종목 슬롯머신, 출전자 추첨, 실시간 전광판">
 <meta property="og:title" content="크루 대항 종합게임">
 <meta property="og:description" content="대진 룰렛 · 종목 슬롯머신 · 출전자 추첨 · 실시간 전광판">
@@ -806,7 +806,7 @@
   }
 
   .pr-photo{
-    position:absolute;inset:0;width:100%;height:100%;object-fit:contain;object-position:center;display:none;
+    position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center top;display:none;
     opacity:0;transform:scale(1.15);filter:blur(10px) brightness(.65);
     z-index:2;
   }
@@ -2845,6 +2845,143 @@ body.broadcast-overlay-mode .bo-topline>div:first-child{
 body.broadcast-overlay-mode .bo-round-pill{
   position:absolute!important;right:4.5vw!important;top:50%!important;
   transform:translateY(-50%)!important;margin:0!important}
+
+/* ═══════════════════════════════════════════════════════════
+   v37 — 추첨 연출을 '무대'로. 오버레이와 같은 에셋을 씁니다.
+   지금은 평평한 검정 위에 뜬 웹 모달로 보입니다.
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── 공통 무대 ─────────────────────────────────────────── */
+.game-roulette-modal,.player-reveal-modal{
+  background:
+    linear-gradient(180deg,rgba(3,6,11,.90) 0 16vh,rgba(3,6,11,.50) 42vh,rgba(3,6,11,.80) 100%),
+    radial-gradient(76vw 70vh at 50% 46%,transparent 34%,rgba(2,4,8,.74) 100%),
+    var(--as-bg-stage) center/cover no-repeat,
+    #05070c !important}
+.game-roulette-modal::after,.player-reveal-modal::after{
+  content:"";position:absolute;inset:0;pointer-events:none;z-index:0;
+  background:radial-gradient(70vw 58vh at 50% 42%,transparent 44%,rgba(0,0,0,.6) 100%)}
+.game-roulette-modal>*,.player-reveal-modal>*{position:relative;z-index:1}
+
+/* 코너 장식 */
+.game-roulette-modal::before,.player-reveal-modal::before{
+  content:"";position:absolute;left:2.2vw;bottom:2vh;width:8vh;height:8vh;z-index:0;
+  background:var(--as-corner-l) left bottom/contain no-repeat;
+  transform:scaleY(-1);opacity:.55;pointer-events:none}
+
+/* ── 종목 룰렛 ─────────────────────────────────────────── */
+.gr-kicker{font-family:var(--ar-lat);letter-spacing:.44em;color:#c9b489;font-size:1.7vh}
+.gr-title{
+  font-family:var(--ar-disp);font-weight:900;letter-spacing:-.03em;
+  font-size:6vh;color:#fff7e6;
+  text-shadow:0 .25vh .6vh rgba(0,0,0,.7),0 0 4vw rgba(245,196,81,.3)}
+.gr-sub{color:#b9c3d6;font-weight:700}
+/* 제목 아래 장식 구분선 */
+.gr-top::after{
+  content:"";display:block;width:22vw;height:2.2vh;margin:1vh auto 0;
+  background:var(--as-divider) center/contain no-repeat;opacity:.8}
+
+.gr-machine{
+  border:1px solid rgba(214,178,98,.34)!important;border-radius:1.4vh!important;
+  background:linear-gradient(180deg,rgba(8,12,20,.82),rgba(4,7,12,.88))!important;
+  box-shadow:inset 0 0 8vh rgba(0,0,0,.8),0 2vh 5vh rgba(0,0,0,.55)!important}
+
+/* 칸들 — 무지개 파스텔을 걷어내고 어두운 금속 슬래브로 통일합니다.
+   색이 많으면 '싸구려 룰렛'이 되고, 당첨 칸이 안 튑니다. */
+.gr-item{
+  background:linear-gradient(180deg,#161d2b,#0b111b)!important;
+  border:1px solid #2b3648!important}
+.gr-item::after{content:none!important}
+.gr-item-name{color:#e9eefa!important;font-weight:900!important;letter-spacing:-.015em!important;
+  text-shadow:0 .15vh .4vh rgba(0,0,0,.7)!important}
+.gr-item-meta{color:#7f8da4!important;font-weight:700!important}
+
+/* 당첨 칸만 금색으로 — 여기만 색이 있으니 확실히 튑니다 */
+.gr-focus{
+  border-top:.35vh solid var(--ar-gold)!important;
+  border-bottom:.35vh solid var(--ar-gold)!important;
+  background:linear-gradient(90deg,
+    rgba(245,196,81,.20),rgba(245,196,81,.07) 50%,rgba(245,196,81,.20))!important;
+  box-shadow:0 0 4vh rgba(245,196,81,.45),inset 0 0 3vh rgba(245,196,81,.14)!important}
+.gr-focus::after{
+  background:radial-gradient(60% 120% at 50% 50%,rgba(245,196,81,.6),transparent 72%)!important}
+
+/* 결과 — 금속 명패 위에 종목명 */
+.gr-result{color:#c9b489!important}
+.gr-result strong{
+  position:relative;display:inline-block!important;
+  padding:1.4vh 5vw 1.6vh!important;margin-top:1.4vh!important;
+  font-family:var(--ar-disp);font-weight:900;letter-spacing:-.03em;
+  font-size:5.4vh!important;color:#fff7e6!important;
+  text-shadow:0 .25vh .5vh rgba(0,0,0,.8)!important}
+.gr-result strong::before{
+  content:"";position:absolute;inset:0;z-index:-1;
+  background:var(--as-plate-name) center/100% 100% no-repeat;
+  filter:drop-shadow(0 1vh 1.6vh rgba(0,0,0,.6))}
+
+/* ── 선수 추첨 ─────────────────────────────────────────── */
+.pr-kicker{font-family:var(--ar-lat);letter-spacing:.44em;color:#c9b489}
+.pr-crew-name{
+  font-family:var(--ar-disp);font-weight:900;color:#fff7e6;
+  text-shadow:0 .25vh .6vh rgba(0,0,0,.7)}
+/* 크루명이 제목과 배지로 두 번 나오던 것 정리 */
+.pr-crew{display:none!important}
+.pr-frame{
+  border:.45vh solid var(--pr-main,var(--ar-acc))!important;
+  box-shadow:0 0 6vh color-mix(in srgb,var(--pr-main) 55%,transparent),
+             inset 0 0 4vh rgba(0,0,0,.55)!important}
+.pr-nameplate{
+  position:relative;background:none!important;border:0!important;
+  padding:1.2vh 4vw 1.4vh!important}
+.pr-nameplate::before{
+  content:"";position:absolute;inset:0;z-index:-1;
+  background:var(--as-plate-name) center/100% 100% no-repeat;
+  filter:drop-shadow(0 1vh 1.5vh rgba(0,0,0,.6))}
+.pr-role{color:#c9b489!important;letter-spacing:.3em!important;font-size:1.4vh!important}
+.pr-player-name{
+  font-family:var(--ar-disp);font-weight:900;color:#fff7e6!important;
+  letter-spacing:-.02em!important;
+  text-shadow:0 .25vh .5vh rgba(0,0,0,.8),0 0 3vw color-mix(in srgb,var(--pr-main) 45%,transparent)!important}
+.pr-count{font-family:var(--ar-lat);letter-spacing:.14em;color:#93a0b6}
+.pr-count b{color:#fff7e6}
+.pr-status{color:#b9c3d6!important;font-weight:700!important}
+.pr-picked-card{
+  background:rgba(10,15,24,.72)!important;border:1px solid rgba(214,178,98,.3)!important}
+
+
+/* 결과 명패가 라벨·버튼과 겹치던 문제 — 세로로 쌓고 아래 여유를 줍니다 */
+.gr-result{
+  display:flex!important;flex-direction:column!important;align-items:center!important;
+  gap:.4vh!important;margin-bottom:2.4vh!important;line-height:1.2!important}
+.gr-result strong{margin-top:.8vh!important;padding:1.2vh 4.5vw 1.4vh!important}
+.gr-actions{margin-top:1.2vh!important}
+
+/* ── v37 보정 ────────────────────────────────────────────
+   1) 명패: 내 metal 판이 기존 좌우 장식선(::before/::after)을 덮어써서
+      한쪽만 남아 유령처럼 보였습니다. 남은 쪽을 지우고 판을 제대로 앉힙니다. */
+.pr-nameplate{
+  opacity:1!important;transform:none!important;margin-top:-1.2vh!important;
+  min-width:26vw!important;padding:1.1vh 3vw 1.3vh!important;
+  border-radius:0!important}
+.pr-nameplate::after{content:none!important}
+.pr-nameplate::before{
+  content:""!important;position:absolute!important;inset:0!important;
+  top:auto!important;left:0!important;right:0!important;bottom:0!important;
+  width:auto!important;height:100%!important;z-index:-1!important;
+  background:var(--as-plate-name) center/100% 100% no-repeat!important;
+  filter:drop-shadow(0 1vh 1.6vh rgba(0,0,0,.65))!important}
+
+/* 2) 프로필 원본에 위아래 어두운 띠가 구워져 있어 크게 띄우면 드러납니다.
+      살짝 확대해 띠를 잘라냅니다. */
+.pr-frame{overflow:hidden!important}
+.pr-photo{transform-origin:50% 42%!important}
+.pr-stage.is-revealed .pr-photo{animation:prFaceIn .75s cubic-bezier(.18,.8,.18,1) both,
+  prZoomFit .01s linear .75s forwards!important}
+@keyframes prZoomFit{to{transform:scale(1.16);opacity:1;filter:none}}
+
+/* 3) 상태 문구가 버튼 아래로 겹치던 것 */
+.pr-actions{margin-top:1.4vh!important;margin-bottom:.6vh!important}
+.pr-status{display:block!important;margin-top:1vh!important}
 </style>
 <!-- app-build: tiered-fair-draw-v29-20260825 -->
 </head>
@@ -2998,7 +3135,7 @@ body.broadcast-overlay-mode .bo-round-pill{
   <div class="gr-stage" id="gameRouletteStage">
     <div class="gr-top">
       <div class="gr-kicker">GAME SELECTION</div>
-      <h2 class="gr-title">GAME ROULETTE</h2>
+      <h2 class="gr-title">종목 추첨</h2>
       <div class="gr-sub" id="grSub">이번 라운드의 종목을 추첨합니다</div>
     </div>
     <div class="gr-machine" id="grMachine">
@@ -4485,13 +4622,20 @@ function prLater(fn,ms){
   PR.timerIds.push(id);
   return id;
 }
+/* 크루 색을 이름으로 하드코딩해 두면 색을 바꿔도 연출이 안 따라옵니다.
+   크루에 설정된 색에서 진한색·연한색을 계산해 씁니다. */
+function shadeHex(hex,amt){
+  const h=String(hex||'').replace('#','').trim();
+  const n=h.length===3?h.split('').map(c=>c+c).join(''):h;
+  if(!/^[0-9a-f]{6}$/i.test(n))return '#8aa4c8';
+  const v=parseInt(n,16);
+  const mix=(c)=>amt<0?Math.round(c*(1+amt)):Math.round(c+(255-c)*amt);
+  const r=mix((v>>16)&255),g=mix((v>>8)&255),b=mix(v&255);
+  return '#'+[r,g,b].map(x=>Math.max(0,Math.min(255,x)).toString(16).padStart(2,'0')).join('');
+}
 function memberTheme(c){
-  const name=(c&&c.name||'').replace(/\s+/g,'');
-  if(name.includes('천타버스')) return {main:'#66e0d1',deep:'#168f86',soft:'#d9fff8'}; // 민트
-  if(name.includes('조적단'))   return {main:'#5b8cff',deep:'#234f9e',soft:'#e6efff'}; // 파랑
-  if(name.includes('진드기'))   return {main:'#4fc46b',deep:'#1f7d3a',soft:'#e2ffe9'}; // 초록
-  if(name.includes('버인'))     return {main:'#f5c451',deep:'#b98314',soft:'#fff3c6'}; // 노랑
-  return {main:(c&&c.color)||'#8aa4c8',deep:'#334b69',soft:'#eef5ff'};
+  const main=(c&&c.color)||'#8aa4c8';
+  return {main,deep:shadeHex(main,-.45),soft:shadeHex(main,.72)};
 }
 function applyPlayerRevealTheme(c){
   const t=memberTheme(c),m=document.getElementById('playerRevealModal');

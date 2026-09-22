@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>크루 대항 종합게임</title>
-<meta name="app-build" content="board-stage-v38-20260922">
+<meta name="app-build" content="fix-nextbtn-v39-20260922">
 <meta name="description" content="크루 대항 종합게임 - 대진 룰렛, 종목 슬롯머신, 출전자 추첨, 실시간 전광판">
 <meta property="og:title" content="크루 대항 종합게임">
 <meta property="og:description" content="대진 룰렛 · 종목 슬롯머신 · 출전자 추첨 · 실시간 전광판">
@@ -3100,6 +3100,141 @@ body.board-stage .broadcast-title{font-size:clamp(34px,3.6vw,64px)!important}
 body.board-stage .broadcast-round{font-size:clamp(18px,1.9vw,34px)!important}
 body.board-stage .broadcast-head-sub{font-size:clamp(12px,.95vw,17px)!important}
 body.board-stage .broadcast-title-wrap{padding:2.4vh 4.5% 2.6vh 3.2%!important}
+
+/* ── v39: 대회명 묶음 다시 배치 ─────────────────────────────
+   현수막이 왼쪽 끝에 붙고, 부제가 천 밖으로 떨어져 나와 따로 놀았습니다.
+   제목 + ROUND + 부제를 하나의 묶음으로 만들어 천 안에 전부 넣습니다. */
+.broadcast-title-wrap::before{content:none!important}
+.broadcast-head{
+  padding:18px 0 4px!important;align-items:flex-start!important}
+/* 제목 묶음 전체(제목+ROUND+부제)를 감싸는 첫 div 가 현수막이 됩니다 */
+.broadcast-head>div:first-child{
+  position:relative!important;isolation:isolate;
+  margin-left:2.2%!important;
+  padding:20px 4.2% 24px 4.4%!important;
+  display:flex!important;flex-direction:column!important;align-items:center!important;
+  gap:6px!important;min-width:0!important;flex:0 0 auto!important}
+.broadcast-head>div:first-child::before{
+  content:""!important;position:absolute!important;z-index:-1!important;inset:0!important;
+  background:var(--as-plate-title) center/100% 100% no-repeat;
+  filter:drop-shadow(0 10px 20px rgba(0,0,0,.6))}
+.broadcast-title-wrap{
+  padding:0!important;gap:20px!important;align-items:center!important;
+  justify-content:center!important}
+.broadcast-head-sub{
+  margin:0!important;text-align:center!important;color:#c6b795!important;
+  letter-spacing:.02em!important}
+.broadcast-status{margin-left:auto!important;align-self:center!important}
+
+/* 방송 모드에선 묶음을 가운데로 */
+body.board-stage .broadcast-head{justify-content:center!important;padding-top:2.2vh!important}
+body.board-stage .broadcast-head>div:first-child{
+  margin-left:0!important;padding:2.4vh 5% 2.8vh!important}
+body.board-stage .broadcast-status{position:absolute!important;right:2vw!important;top:2.6vh!important;margin:0!important}
+body.board-stage .broadcast-head{position:relative!important}
+
+/* ═══════════════════════════════════════════════════════════
+   v39 — 라운드 화면. 관리자가 대회 내내 조작하는 작업 화면입니다.
+   보기 좋게 만들되 밀도와 클릭 편의는 해치지 않습니다.
+   ═══════════════════════════════════════════════════════════ */
+
+/* 라운드 카드 — 무대 배경을 아주 옅게 깔아 깊이만 줍니다 */
+.round{
+  position:relative;isolation:isolate;overflow:hidden;
+  border:1px solid rgba(214,178,98,.2)!important;border-radius:14px!important;
+  background:
+    linear-gradient(180deg,rgba(9,14,23,.94),rgba(6,10,17,.96))!important;
+  box-shadow:0 14px 34px rgba(0,0,0,.42)!important}
+.round::after{
+  content:"";position:absolute;inset:0;z-index:-1;opacity:.22;pointer-events:none;
+  background:var(--as-bg-stage) center top/cover no-repeat}
+.round::before{
+  background:linear-gradient(180deg,var(--ar-gold),transparent 70%)!important;
+  opacity:.55!important}
+
+/* 헤더 줄 — 종목명을 확실히 주인공으로 */
+.rh{
+  padding:14px 16px!important;
+  background:linear-gradient(180deg,rgba(255,255,255,.045),rgba(255,255,255,0))!important;
+  border-bottom:1px solid rgba(255,255,255,.07)!important}
+.gtitle{font-size:21px!important}
+.rh .sm{opacity:.82}
+.rh .sm:hover{opacity:1}
+
+/* 단계 표시 */
+.round-steps{padding:12px 16px!important}
+.round-step.on .num{background:var(--ar-gold)!important;color:#100c04!important;
+  box-shadow:0 0 14px rgba(245,196,81,.5)!important}
+.round-step.on{color:#fff7e6!important}
+
+/* 확정 대진 줄 */
+.match-summary{
+  background:rgba(8,13,22,.7)!important;border:1px solid rgba(214,178,98,.18)!important;
+  border-radius:10px!important}
+
+/* ── 크루 카드 ─────────────────────────────────────────── */
+.arena{gap:13px!important}
+.team{
+  position:relative;overflow:hidden;
+  border:1px solid rgba(255,255,255,.09)!important;border-radius:12px!important;
+  background:linear-gradient(180deg,
+    color-mix(in srgb,var(--crew,#5b8cff) 9%,rgba(10,15,25,.92)),
+    rgba(6,10,17,.94))!important;
+  box-shadow:0 8px 22px rgba(0,0,0,.35)!important}
+.team::before{
+  content:"";position:absolute;left:0;right:0;top:0;height:3px;
+  background:var(--crew,#5b8cff);
+  box-shadow:0 0 12px color-mix(in srgb,var(--crew) 70%,transparent)}
+.team.won{
+  border-color:color-mix(in srgb,var(--ar-gold) 60%,transparent)!important;
+  box-shadow:0 0 26px rgba(245,196,81,.2),0 8px 22px rgba(0,0,0,.4)!important}
+.team.won::before{background:var(--ar-gold);box-shadow:0 0 16px rgba(245,196,81,.7)}
+.team.dim{opacity:.55}
+
+/* 크루 이름줄 — 로고가 있으면 크게 */
+.th{
+  padding:12px 13px 10px!important;font-size:16px!important;font-weight:900!important;
+  letter-spacing:-.015em!important;color:#fff7e6!important;
+  border-bottom:1px solid rgba(255,255,255,.06)!important}
+.th .crew-mini-banner{max-height:30px!important;width:auto!important;margin-right:2px}
+.th .dot{width:9px!important;height:9px!important;
+  box-shadow:0 0 9px color-mix(in srgb,var(--crew) 80%,transparent)}
+
+/* ── 버튼 위계 ─────────────────────────────────────────
+   지금은 네 개가 같은 무게로 나열돼 뭘 눌러야 할지 안 보입니다.
+   뽑기 = 주행동, 수동/점수 = 보조, 승리 = 결정. */
+.rbtns{gap:7px!important;align-items:center!important;flex-wrap:wrap!important}
+.rbtns .purple.sm{
+  flex:1 1 100%!important;order:1;
+  padding:9px 12px!important;font-size:13.5px!important;font-weight:900!important}
+.rbtns [data-act="rLineupBurst"]{
+  order:2;flex:1 1 calc(50% - 4px)!important;
+  background:#13213a!important;border:1px solid #2f4470!important;color:#c6d8ff!important}
+.rbtns [data-act="manualLineup"]{order:3;flex:1 1 calc(50% - 4px)!important}
+.rbtns input[data-act="score"]{
+  order:4;flex:1 1 100%!important;width:auto!important;
+  background:#0a1120!important;border:1px solid #27324a!important;
+  padding:8px 10px!important;font-weight:800!important}
+
+/* 승리 버튼 — 카드 맨 아래, 한 번에 알아보게 */
+.teamfoot{padding:0 11px 12px!important;margin-top:10px!important}
+.teamfoot .sm{
+  padding:10px 12px!important;font-size:13.5px!important;font-weight:900!important;
+  background:linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,.02))!important;
+  border:1px solid rgba(255,255,255,.14)!important;color:#dbe4f2!important}
+.teamfoot .sm:hover:not(:disabled){
+  border-color:color-mix(in srgb,var(--crew) 70%,transparent)!important;
+  background:color-mix(in srgb,var(--crew) 16%,rgba(255,255,255,.04))!important;
+  color:#fff!important}
+.teamfoot .gold{
+  background:linear-gradient(180deg,#f7d268,#d9a52c)!important;
+  border-color:#f7d268!important;color:#100c04!important;
+  box-shadow:0 0 18px rgba(245,196,81,.35)!important}
+
+.roster{padding:10px 12px 0!important}
+.subcrew{padding:0 11px 11px!important;border-top:0!important}
+.crown{filter:drop-shadow(0 2px 6px rgba(0,0,0,.6))}
+
 </style>
 <!-- app-build: tiered-fair-draw-v29-20260825 -->
 </head>
@@ -4987,7 +5122,10 @@ function cancelPlayerReveal(){
   closePlayerReveal(true);
   liveDismiss();
 }
-document.getElementById('prNextBtn').addEventListener('click',revealNextPlayer);
+/* 이 줄은 스크립트 로드 시점에 실행되므로, 함수를 그대로 넘기면
+   '그때의' revealNextPlayer 가 붙잡힙니다. 아래에서 재정의되는 버전을
+   쓰려면 호출 시점에 찾아야 합니다. */
+document.getElementById('prNextBtn').addEventListener('click',function(){revealNextPlayer();});
 document.getElementById('prDoneBtn').addEventListener('click',()=>closePlayerReveal(true));
 document.getElementById('prCancelBtn').addEventListener('click',cancelPlayerReveal);
 document.getElementById('playerRevealModal').addEventListener('click',e=>{
@@ -5791,7 +5929,8 @@ function renderRounds(){
       let action='win',extra='',label=(r.mode==='all'?'1등으로':'승리로');
       if(opt.kind==='semi'){ action='semiWin';extra=' data-match="'+opt.match+'"';label='4강 승리'; }
       if(opt.kind==='final'){ action='finalWin';label='우승으로'; }
-      return '<div class="team'+(won?' won':'')+(dim?' dim':'')+'">'
+      // 카드에 크루 색을 넘겨줘야 CSS 에서 레일·테두리에 쓸 수 있습니다.
+      return '<div class="team'+(won?' won':'')+(dim?' dim':'')+'" style="--crew:'+safeColor(crewColor(u[0]))+'">'
         +(won?'<div class="crown">👑</div>':'')
         +'<div class="th">'+head+'</div>'+inner
         +'<div class="teamfoot noprint"><button class="'+(won?'gold':'')+' sm" style="flex:1" '

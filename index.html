@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>크루 대항 종합게임</title>
-<meta name="app-build" content="draw-stage-v37-20260922">
+<meta name="app-build" content="board-stage-v38-20260922">
 <meta name="description" content="크루 대항 종합게임 - 대진 룰렛, 종목 슬롯머신, 출전자 추첨, 실시간 전광판">
 <meta property="og:title" content="크루 대항 종합게임">
 <meta property="og:description" content="대진 룰렛 · 종목 슬롯머신 · 출전자 추첨 · 실시간 전광판">
@@ -2982,6 +2982,124 @@ body.broadcast-overlay-mode .bo-round-pill{
 /* 3) 상태 문구가 버튼 아래로 겹치던 것 */
 .pr-actions{margin-top:1.4vh!important;margin-bottom:.6vh!important}
 .pr-status{display:block!important;margin-top:1vh!important}
+
+/* ═══════════════════════════════════════════════════════════
+   v38 — 전광판. 방송에도 띄우고 관리용으로도 봅니다.
+   밀도·글자크기는 그대로 두고 재질과 깊이만 올립니다.
+   ═══════════════════════════════════════════════════════════ */
+
+/* 판 자체에 체육관 무대를 깝니다. 글자가 읽혀야 하므로 스크림은 넉넉히. */
+.broadcast-board{
+  position:relative;isolation:isolate;overflow:hidden;
+  border:1px solid rgba(214,178,98,.26)!important;
+  background:
+    linear-gradient(180deg,rgba(6,10,17,.93) 0 90px,rgba(6,10,17,.80) 300px,rgba(5,8,14,.90) 100%),
+    radial-gradient(1200px 620px at 50% 8%,rgba(2,4,8,.40),rgba(2,4,8,.82) 100%),
+    var(--as-bg-stage) center top/cover no-repeat,
+    #060a11 !important;
+  box-shadow:0 24px 60px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.05)!important}
+
+/* 대회명에 현수막 */
+.broadcast-head{position:relative;padding-top:14px!important;padding-bottom:12px!important}
+.broadcast-title-wrap{position:relative;z-index:1}
+.broadcast-head::before{
+  content:"";position:absolute;z-index:0;left:-14px;right:-14px;top:0;height:86px;
+  background:var(--as-plate-title) center/100% 100% no-repeat;opacity:.9;
+  filter:drop-shadow(0 10px 18px rgba(0,0,0,.55))}
+.broadcast-title{color:#fff7e6!important;text-shadow:0 2px 5px rgba(0,0,0,.7)!important}
+.broadcast-round{box-shadow:0 4px 12px rgba(0,0,0,.45)}
+.broadcast-head-sub{color:#b3a686!important}
+.broadcast-status{position:relative;z-index:1}
+.broadcast-status-item{
+  background:rgba(8,13,22,.78)!important;border:1px solid rgba(214,178,98,.22)!important}
+
+/* 크루 점수 카드 — 금속 명패를 이름줄에 */
+.broadcast-crew-card{
+  background:linear-gradient(180deg,rgba(11,17,28,.86),rgba(5,9,15,.9))!important;
+  border:1px solid rgba(255,255,255,.09)!important;
+  box-shadow:0 10px 26px rgba(0,0,0,.45)!important}
+.broadcast-crew-card::before{box-shadow:0 0 14px color-mix(in srgb,var(--crew) 70%,transparent)}
+.broadcast-crew-name{color:#fff7e6!important;text-shadow:0 1px 3px rgba(0,0,0,.7)!important}
+
+/* 본문 패널들 */
+.broadcast-match-card,.broadcast-history-card{
+  background:rgba(7,11,19,.72)!important;
+  border:1px solid rgba(255,255,255,.08)!important;
+  backdrop-filter:blur(2px)}
+.broadcast-side{background:rgba(6,10,18,.62)!important}
+.broadcast-panel-head{color:#fff7e6!important}
+
+/* 패널 제목 아래 금색 구분선 */
+.broadcast-panel-head::after{
+  content:"";display:block;width:120px;height:12px;margin-top:6px;
+  background:var(--as-divider) left center/contain no-repeat;opacity:.7}
+
+/* ── 방송 모드 — 전광판만 전체화면 ─────────────────────── */
+body.board-stage{overflow:hidden!important}
+body.board-stage header.top,
+body.board-stage .hintbar,
+body.board-stage #sec-round,
+body.board-stage #sec-games,
+body.board-stage #sec-crews,
+body.board-stage #sec-setting{display:none!important}
+body.board-stage main{padding:0!important;margin:0!important;max-width:none!important}
+body.board-stage #sec-board{display:block!important;padding:0!important;margin:0!important}
+body.board-stage .broadcast-board{
+  position:fixed!important;inset:0!important;width:100vw!important;height:100vh!important;
+  border:0!important;border-radius:0!important;margin:0!important;
+  overflow:auto!important;padding:2.4vh 2vw!important;z-index:40}
+/* 나가는 방법을 화면에 남겨둡니다 */
+body.board-stage .broadcast-board::after{
+  content:"ESC 로 나가기";position:fixed;right:1.4vw;bottom:1.4vh;z-index:41;
+  font-size:12px;font-weight:800;letter-spacing:.04em;color:#8b9ab2;
+  background:rgba(8,12,20,.8);border:1px solid rgba(255,255,255,.12);
+  padding:6px 12px;border-radius:7px;pointer-events:none}
+#stageModeBtn{margin-left:auto}
+body.board-stage #stageModeBtn{display:none}
+
+
+/* ── v38 보정 ────────────────────────────────────────────
+   현수막이 오른쪽 상태 카드까지 덮고 부제가 잘렸습니다.
+   제목 묶음 뒤에만 깔고, 높이를 글자에 맞춥니다. */
+.broadcast-head::before{content:none!important}
+.broadcast-title-wrap{
+  position:relative!important;isolation:isolate;
+  padding:14px 3.2% 16px 2.4%!important;align-items:center!important}
+.broadcast-title-wrap::before{
+  content:""!important;position:absolute!important;z-index:-1!important;
+  left:-10px;right:-2.4%;top:0;bottom:0;
+  background:var(--as-plate-title) center/100% 100% no-repeat;opacity:.94;
+  filter:drop-shadow(0 8px 16px rgba(0,0,0,.55))}
+.broadcast-head{padding-top:6px!important;padding-bottom:6px!important;
+  align-items:center!important;gap:16px!important}
+.broadcast-head-sub{margin-top:4px!important;color:#c2b391!important}
+
+/* 패널 제목 옆에 어정쩡하게 붙던 구분선 제거 */
+.broadcast-panel-head::after{content:none!important}
+
+/* 배경이 거의 안 보이게 눌려 있었습니다 — 조금 풀어줍니다 */
+.broadcast-board{
+  background:
+    linear-gradient(180deg,rgba(6,10,17,.82) 0 90px,rgba(6,10,17,.62) 320px,rgba(5,8,14,.84) 100%),
+    radial-gradient(1200px 640px at 50% 6%,rgba(2,4,8,.24),rgba(2,4,8,.76) 100%),
+    var(--as-bg-stage) center top/cover no-repeat,
+    #060a11 !important}
+
+/* ── v38 보정 2 ──────────────────────────────────────────
+   1) 관람 모드 안내줄이 방송 모드에서도 보였습니다(클래스명이 달랐습니다) */
+body.board-stage .readonly-note{display:none!important}
+
+/* 2) 대회명이 현수막 안에서 두 줄로 꺾였습니다 */
+.broadcast-title{white-space:nowrap!important}
+.broadcast-title-wrap{flex:0 0 auto!important;min-width:0!important;
+  padding:16px 4% 18px 3%!important;gap:18px!important}
+.broadcast-title-wrap>*{flex:none!important}
+
+/* 3) 방송 모드에서는 현수막과 글자를 화면 크기에 맞춰 키웁니다 */
+body.board-stage .broadcast-title{font-size:clamp(34px,3.6vw,64px)!important}
+body.board-stage .broadcast-round{font-size:clamp(18px,1.9vw,34px)!important}
+body.board-stage .broadcast-head-sub{font-size:clamp(12px,.95vw,17px)!important}
+body.board-stage .broadcast-title-wrap{padding:2.4vh 4.5% 2.6vh 3.2%!important}
 </style>
 <!-- app-build: tiered-fair-draw-v29-20260825 -->
 </head>
@@ -3175,6 +3293,7 @@ body.broadcast-overlay-mode .bo-round-pill{
       <button data-tab="games">종목</button>
       <button data-tab="crews">크루 · 선수</button>
       <button data-tab="setting">설정</button>
+      <button id="stageModeBtn" type="button" title="전광판만 전체화면으로 띄웁니다. ESC 로 나갑니다.">방송 모드</button>
       <button id="overlayOpenBtn" type="button" title="OBS·프릭샷 브라우저 소스용 3화면 자동 오버레이를 새 창으로 엽니다">방송 오버레이 ↗</button>
     </nav>
   </div>
@@ -6250,6 +6369,25 @@ window.addEventListener('beforeunload',save);
 async function initApp(){
   document.title=S.title||'크루 대항 종합게임';
   initBroadcastOverlay();
+  /* 전광판을 방송에 띄우는 경우가 있어, 관리자 화면 요소를 숨기고
+     전광판만 전체화면으로 보여주는 모드를 둡니다. 로컬 전용이라 다른 접속자에겐 영향이 없습니다. */
+  const stageBtn=document.getElementById('stageModeBtn');
+  function setStageMode(on){
+    document.body.classList.toggle('board-stage',!!on);
+    if(on){ document.body.dataset.activeTab='board';
+      document.querySelectorAll('#tabs button[data-tab]').forEach(x=>x.classList.toggle('on',x.dataset.tab==='board'));
+      document.querySelectorAll('main section').forEach(x=>x.classList.toggle('on',x.id==='sec-board'));
+    }
+    if(stageBtn)stageBtn.textContent=on?'방송 모드 끄기':'방송 모드';
+    try{sessionStorage.setItem('crew-board-stage',on?'1':'0');}catch(e){}
+    try{window.scrollTo(0,0);}catch(e){}
+  }
+  if(stageBtn)stageBtn.onclick=()=>setStageMode(!document.body.classList.contains('board-stage'));
+  window.addEventListener('keydown',e=>{
+    if(e.key==='Escape'&&document.body.classList.contains('board-stage'))setStageMode(false);
+  });
+  try{ if(sessionStorage.getItem('crew-board-stage')==='1')setStageMode(true); }catch(e){}
+
   const overlayOpenBtn=document.getElementById('overlayOpenBtn');
   if(overlayOpenBtn)overlayOpenBtn.onclick=()=>{
     try{const u=new URL(location.href);u.searchParams.set('overlay','1');u.searchParams.set('source','browser');window.open(u.toString(),'_blank','noopener');}

@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>크루 대항 종합게임</title>
-<meta name="app-build" content="asset-tune-v35-20260922">
+<meta name="app-build" content="title-center-v36-20260922">
 <meta name="description" content="크루 대항 종합게임 - 대진 룰렛, 종목 슬롯머신, 출전자 추첨, 실시간 전광판">
 <meta property="og:title" content="크루 대항 종합게임">
 <meta property="og:description" content="대진 룰렛 · 종목 슬롯머신 · 출전자 추첨 · 실시간 전광판">
@@ -2833,6 +2833,18 @@ body.broadcast-overlay-mode .bo-game-title,
 body.broadcast-overlay-mode .bo-lineup-wait{
   text-shadow:0 .2vh .6vh rgba(0,0,0,.9),0 0 1.2vw rgba(0,0,0,.7)!important}
 
+
+/* ── v36: 상단 대회명을 현수막 가운데로 ─────────────────────
+   기존에는 왼쪽 정렬 + 오른쪽 ROUND 배지의 flex 양끝 배치였습니다.
+   대회명을 가운데로 보내고 ROUND 배지만 오른쪽에 절대 배치합니다. */
+body.broadcast-overlay-mode .bo-topline{
+  justify-content:center!important;text-align:center!important}
+body.broadcast-overlay-mode .bo-topline>div:first-child{
+  text-align:center!important;display:flex!important;flex-direction:column!important;
+  align-items:center!important}
+body.broadcast-overlay-mode .bo-round-pill{
+  position:absolute!important;right:4.5vw!important;top:50%!important;
+  transform:translateY(-50%)!important;margin:0!important}
 </style>
 <!-- app-build: tiered-fair-draw-v29-20260825 -->
 </head>

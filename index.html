@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>크루 대항 종합게임</title>
-<meta name="app-build" content="fix-nextbtn-v39-20260922">
+<meta name="app-build" content="unify-world-v40-20260922">
 <meta name="description" content="크루 대항 종합게임 - 대진 룰렛, 종목 슬롯머신, 출전자 추첨, 실시간 전광판">
 <meta property="og:title" content="크루 대항 종합게임">
 <meta property="og:description" content="대진 룰렛 · 종목 슬롯머신 · 출전자 추첨 · 실시간 전광판">
@@ -3235,6 +3235,151 @@ body.board-stage .broadcast-head{position:relative!important}
 .subcrew{padding:0 11px 11px!important;border-top:0!important}
 .crown{filter:drop-shadow(0 2px 6px rgba(0,0,0,.6))}
 
+
+/* ═══════════════════════════════════════════════════════════════
+   v40 — 하나의 세계로 통일
+   문제: 체육관 무대(금색·따뜻함)를 일부에만 입히고, 나머지는 예전
+   파랑·보라·초록 네온을 그대로 둬서 두 디자인이 싸우고 있었습니다.
+   해법: 루트 변수를 따뜻한 쪽으로 다시 정의하고, 페이지 바탕에도
+   같은 무대를 깔아 패널이 허공이 아니라 '한 공간 안'에 놓이게 합니다.
+   ═══════════════════════════════════════════════════════════════ */
+:root{
+  /* 바탕 — 파랑기 빼고 따뜻한 중성으로 */
+  --bg:#0a0a0d;
+  --panel:#12121a;
+  --panel2:#1a1a24;
+  --line:#2c2a33;
+  --txt:#f0ece4;
+  --muted:#9a9384;
+  /* 액센트를 금색으로. 이 한 줄이 버튼·탭·배지·단계표시를 전부 따라오게 합니다 */
+  --accent:#e8b84a;
+  --gold:#f5c451;
+  --win:#8fd694;
+  /* 아레나 토큰도 같은 세계로 */
+  --ar-acc:#e8b84a;
+  --ar-bg:#0a0a0d;
+  --ar-surface:#12121a;
+  --ar-raised:#1a1a24;
+  --ar-line:#2c2a33;
+  --ar-line-hi:#453f36;
+  --ar-tx:#f0ece4;
+  --ar-tx2:#a89f8e;
+  --ar-tx3:#6e6759;
+}
+
+/* ── 페이지 바탕 = 같은 체육관 ──────────────────────────────
+   패널만 무대를 깔면 판이 허공에 떠 보입니다. 바탕에도 같은 방을
+   깔되 아주 어둡게 눌러서, 모든 패널이 한 공간 안에 놓이게 합니다. */
+body{
+  background:
+    linear-gradient(180deg,rgba(8,8,11,.955),rgba(6,6,9,.975)) fixed,
+    var(--as-bg-stage) center top/cover no-repeat fixed,
+    var(--bg) !important;
+  color:var(--txt)}
+body::before{
+  content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:radial-gradient(1400px 800px at 50% -6%,rgba(245,196,81,.05),transparent 62%)}
+header.top,main{position:relative;z-index:1}
+
+/* ── 헤더 · 탭 ───────────────────────────────────────────── */
+header.top{
+  background:linear-gradient(180deg,rgba(14,13,18,.94),rgba(9,9,12,.92))!important;
+  border-bottom:1px solid rgba(214,178,98,.22)!important;
+  backdrop-filter:blur(6px)}
+#tabs button.on::after{
+  background:var(--ar-gold)!important;
+  box-shadow:0 0 12px rgba(245,196,81,.75),0 0 3px rgba(245,196,81,.9)!important}
+#tabs button.on{color:#fff7e6!important}
+#tabs button:hover{color:#cdc3ae!important}
+#stageModeBtn,#overlayOpenBtn{
+  border:1px solid rgba(214,178,98,.32)!important;background:rgba(26,22,14,.6)!important;
+  color:#e2d3ad!important}
+#stageModeBtn:hover,#overlayOpenBtn:hover{
+  background:rgba(40,33,18,.8)!important;border-color:rgba(214,178,98,.6)!important;color:#fff7e6!important}
+
+/* ── 버튼 체계 ──────────────────────────────────────────────
+   금색 하나로 통일하되 '채움 / 테두리'로 위계를 냅니다.
+   채운 금색 = 지금 눌러야 할 것. 테두리 = 보조. */
+button.primary,button.purple{
+  background:linear-gradient(180deg,#f3c95f,#cf9d27)!important;
+  border:1px solid #f3c95f!important;color:#231a06!important;font-weight:900!important;
+  box-shadow:0 0 16px rgba(232,184,74,.28)!important}
+button.primary:hover,button.purple:hover{
+  filter:brightness(1.07)!important;box-shadow:0 0 24px rgba(232,184,74,.45)!important}
+button.gold{
+  background:linear-gradient(180deg,#f8d271,#e8ac2d)!important;border-color:#f8d271!important;
+  color:#241a05!important;box-shadow:0 0 20px rgba(245,196,81,.4)!important}
+button:not(.primary):not(.purple):not(.gold):not(.danger){
+  background:rgba(24,22,28,.82)!important;border:1px solid var(--ar-line-hi)!important;
+  color:#cfc7b7!important}
+button:not(.primary):not(.purple):not(.gold):not(.danger):hover{
+  background:rgba(36,32,24,.9)!important;border-color:rgba(214,178,98,.5)!important;color:#fff7e6!important}
+button.ghost{background:transparent!important}
+button.danger{color:#e08a7a!important;border-color:rgba(160,80,64,.45)!important;background:transparent!important}
+button.danger:hover{background:rgba(70,30,24,.5)!important;color:#ffb0a0!important}
+button:focus-visible{outline:2px solid var(--ar-gold)!important;outline-offset:2px}
+
+/* ── 패널 · 카드 · 입력 ─────────────────────────────────── */
+.card,.setup,.crewbox,.broadcast-history-card,.broadcast-match-card{
+  background:rgba(17,16,23,.82)!important;
+  border:1px solid rgba(214,178,98,.16)!important;
+  backdrop-filter:blur(3px)}
+input,select,textarea{
+  background:rgba(10,10,14,.9)!important;border:1px solid var(--ar-line-hi)!important;
+  color:var(--txt)!important}
+input:focus,select:focus,textarea:focus{
+  border-color:var(--ar-gold)!important;box-shadow:0 0 0 3px rgba(232,184,74,.18)!important}
+.hint,.sub{color:var(--ar-tx3)!important}
+
+/* ── 배지 · 라벨 ───────────────────────────────────────── */
+.modetag{
+  color:#e6d6ad!important;background:rgba(48,38,18,.7)!important;
+  border:1px solid rgba(214,178,98,.4)!important}
+.rno{background:linear-gradient(180deg,#f3c95f,#cf9d27)!important;color:#231a06!important}
+.rno.done{background:linear-gradient(180deg,#a8e0ac,#5aa862)!important;color:#0b1a0d!important}
+.round-step.on .num{background:var(--ar-gold)!important;color:#231a06!important}
+.round-step.done .num{background:#7fc487!important;color:#0b1a0d!important}
+.round-step-line{background:rgba(214,178,98,.2)!important}
+.broadcast-panel-badge,.history-toggle{
+  background:rgba(48,38,18,.7)!important;border:1px solid rgba(214,178,98,.38)!important;
+  color:#e6d6ad!important}
+.broadcast-round{background:linear-gradient(180deg,#f8d271,#e8ac2d)!important;color:#241a05!important}
+.syncpill{border-color:rgba(214,178,98,.3)!important}
+
+/* ── 상단 안내줄 ───────────────────────────────────────── */
+.readonly-note{
+  background:rgba(22,19,12,.8)!important;border:1px solid rgba(214,178,98,.26)!important;
+  color:#c8bda6!important;border-left:3px solid var(--ar-gold)!important}
+
+/* ── 전광판 · 라운드 카드는 이미 무대를 쓰므로 테두리만 맞춥니다 ── */
+.broadcast-board,.round{border-color:rgba(214,178,98,.24)!important}
+.broadcast-status-item{border-color:rgba(214,178,98,.2)!important}
+.broadcast-side,.broadcast-crew-card{border-color:rgba(255,255,255,.08)!important}
+
+/* ── 토스트 ────────────────────────────────────────────── */
+.toast{border-left-color:var(--ar-gold)!important;background:rgba(22,19,12,.95)!important}
+
+/* ── 인쇄는 원래대로 ───────────────────────────────────── */
+@media print{
+  body{background:#fff!important}
+  body::before{display:none}
+}
+
+
+/* 점수 입력만 예전 남색으로 남아 따로 놀았습니다 */
+.rbtns input[data-act="score"]{
+  background:rgba(12,11,16,.92)!important;border:1px solid var(--ar-line-hi)!important;
+  color:var(--txt)!important}
+.rbtns input[data-act="score"]:focus{
+  border-color:var(--ar-gold)!important;box-shadow:0 0 0 3px rgba(232,184,74,.18)!important}
+/* 보조 뽑기 버튼도 남색 → 따뜻한 금속으로 */
+.rbtns [data-act="rLineupBurst"]{
+  background:rgba(30,26,18,.85)!important;border:1px solid rgba(214,178,98,.34)!important;
+  color:#e0d3b4!important}
+.rbtns [data-act="rLineupBurst"]:hover{
+  background:rgba(46,38,20,.92)!important;border-color:rgba(214,178,98,.6)!important;color:#fff7e6!important}
+/* 선택된 탭 바탕이 사각형으로 도드라지던 것 정리 */
+#tabs button.on{background:transparent!important}
 </style>
 <!-- app-build: tiered-fair-draw-v29-20260825 -->
 </head>

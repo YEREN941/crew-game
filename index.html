@@ -4,11 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>크루 대항 종합게임</title>
-<meta name="app-build" content="fair-draw-weight-v31-20260922">
+<meta name="app-build" content="asset-slots-v34-20260922">
 <meta name="description" content="크루 대항 종합게임 - 대진 룰렛, 종목 슬롯머신, 출전자 추첨, 실시간 전광판">
 <meta property="og:title" content="크루 대항 종합게임">
 <meta property="og:description" content="대진 룰렛 · 종목 슬롯머신 · 출전자 추첨 · 실시간 전광판">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏆</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gothic+A1:wght@400;600;700;800;900&family=Bebas+Neue&display=swap">
 <style>
   :root{
     --bg:#0b0e14; --panel:#141922; --panel2:#1b2230; --line:#28303e;
@@ -2148,6 +2151,644 @@ body.broadcast-overlay-mode #boSceneMatch .bo-lineup-wait{
   .member-limit-row input{width:58px!important;padding:4px 6px!important;font-size:11px!important;text-align:center}
   .crew-limit-control{display:inline-flex;align-items:center;gap:6px;padding:5px 8px;border:1px solid #354158;border-radius:8px;background:#101620;color:#aab8ca;font-size:11px;font-weight:850;white-space:nowrap}
   .crew-limit-control input{width:55px!important;padding:4px 5px!important;text-align:center;font-size:11px!important}
+
+/* ═══════════════════════════════════════════════════════════════
+   아레나 디자인 시스템 v32
+   방송 대회용 e스포츠 중계 톤. 토큰을 먼저 정의하고 그것만으로 조립합니다.
+   이 블록은 스타일시트 맨 끝에 있어야 기존 규칙을 덮습니다.
+   ═══════════════════════════════════════════════════════════════ */
+:root{
+  /* 바탕 — 파랑으로 살짝 치우친 뉴트럴 (순수 회색은 값싸 보입니다) */
+  --ar-bg:#05070c;
+  --ar-surface:#0a0f18;
+  --ar-raised:#111a29;
+  --ar-line:#1e2736;
+  --ar-line-hi:#2f3c52;
+  /* 글자 */
+  --ar-tx:#eef3fb;
+  --ar-tx2:#98a6be;
+  --ar-tx3:#616e86;
+  /* 의미색 — 액센트(크루색)와 분리해서 씁니다 */
+  --ar-acc:#5b8cff;
+  --ar-gold:#f5c451;
+  --ar-win:#3ddc97;
+  --ar-bad:#ff6b7a;
+  /* 서체 */
+  --ar-disp:"Gothic A1","Pretendard","Malgun Gothic",system-ui,sans-serif;
+  --ar-ui:"Gothic A1","Pretendard","Malgun Gothic",system-ui,sans-serif;
+  --ar-lat:"Bebas Neue","Gothic A1",sans-serif;
+  /* 비스듬히 잘린 모서리 — 아레나의 시그니처 */
+  --ar-cut:polygon(10px 0,100% 0,calc(100% - 10px) 100%,0 100%);
+  --ar-cut-sm:polygon(6px 0,100% 0,calc(100% - 6px) 100%,0 100%);
+}
+
+/* ---------- 전역 타이포 ---------- */
+body{font-family:var(--ar-ui);letter-spacing:-.005em}
+body,html{background:var(--ar-bg)}
+
+/* 숫자가 세로로 줄 맞는 곳은 전부 고정폭 */
+.bo-standing-points,.broadcast-crew-wins,.round-count-badge,
+input[type=number],.c-score,.pr-count,.bo-result-score{font-variant-numeric:tabular-nums}
+
+/* ---------- 헤더 ---------- */
+header.top{
+  background:linear-gradient(180deg,#080d16,#05070c);
+  border-bottom:1px solid var(--ar-line);
+  box-shadow:0 1px 0 rgba(255,255,255,.03)
+}
+header.top #ttl,header.top .ttl{
+  font-family:var(--ar-disp);font-weight:900;letter-spacing:.01em;
+  font-size:clamp(17px,2.4vw,23px);
+  text-shadow:0 0 22px rgba(91,140,255,.32)
+}
+#tabs{gap:2px}
+#tabs button{
+  font-family:var(--ar-ui);font-weight:800;font-size:13.5px;letter-spacing:.01em;
+  color:var(--ar-tx3);border:0;border-radius:0;background:transparent;
+  padding:11px 15px;position:relative;transition:color .14s
+}
+#tabs button:hover{color:var(--ar-tx2)}
+#tabs button.on{color:#fff;background:transparent}
+#tabs button.on::after{
+  content:"";position:absolute;left:8px;right:8px;bottom:0;height:2.5px;
+  background:var(--ar-acc);box-shadow:0 0 12px var(--ar-acc),0 0 3px var(--ar-acc)
+}
+#tabs button:focus-visible{outline:2px solid var(--ar-acc);outline-offset:-2px}
+
+/* ---------- 버튼 ---------- */
+button.primary,button.purple,button.ghost,button.sm,
+.mbtns button,.gr-actions button,.pr-actions button{
+  font-family:var(--ar-ui);font-weight:800;letter-spacing:.005em;
+  transition:transform .12s,box-shadow .16s,background .16s,border-color .16s
+}
+button.primary{
+  background:linear-gradient(180deg,#6d9bff,#3f74f0);border:1px solid #7aa5ff;color:#03070f;
+  clip-path:var(--ar-cut-sm);box-shadow:0 0 18px rgba(91,140,255,.3)
+}
+button.primary:hover{box-shadow:0 0 26px rgba(91,140,255,.5);transform:translateY(-1px)}
+button.purple{
+  background:linear-gradient(180deg,#8f7bff,#5b45e0);border:1px solid #9c8bff;color:#fff;
+  clip-path:var(--ar-cut-sm);box-shadow:0 0 18px rgba(129,105,255,.32)
+}
+button.purple:hover{box-shadow:0 0 26px rgba(129,105,255,.52);transform:translateY(-1px)}
+button.ghost{background:#0e1523;border:1px solid var(--ar-line-hi);color:var(--ar-tx2)}
+button.ghost:hover{background:#15203180;border-color:#43546f;color:var(--ar-tx)}
+button:disabled{opacity:.38!important;transform:none!important;box-shadow:none!important}
+button:focus-visible{outline:2px solid var(--ar-acc);outline-offset:2px}
+
+/* ---------- 패널·입력 ---------- */
+.card,.panel,section.on>.card{background:var(--ar-surface);border-color:var(--ar-line)}
+input,select,textarea{
+  font-family:var(--ar-ui);background:#0b1220;border:1px solid var(--ar-line-hi);
+  color:var(--ar-tx);transition:border-color .14s,box-shadow .14s
+}
+input:focus,select:focus,textarea:focus{
+  border-color:var(--ar-acc);box-shadow:0 0 0 3px rgba(91,140,255,.16);outline:none
+}
+.hint{color:var(--ar-tx3)}
+
+/* ---------- 라운드 카드 ---------- */
+.round{
+  background:linear-gradient(180deg,var(--ar-surface),#070b13);
+  border:1px solid var(--ar-line);border-radius:12px;position:relative;overflow:hidden
+}
+.round::before{
+  content:"";position:absolute;left:0;top:0;bottom:0;width:3px;
+  background:linear-gradient(180deg,var(--ar-acc),transparent 78%);opacity:.75
+}
+.round-count-badge{
+  font-family:var(--ar-lat);font-size:16px;letter-spacing:.1em;
+  background:var(--ar-acc);color:#04070e;clip-path:var(--ar-cut-sm);
+  padding:4px 11px;border-radius:0;font-weight:400
+}
+.round-steps .round-step{font-weight:800;color:var(--ar-tx3)}
+.round-steps .round-step.on{color:#fff}
+.round-steps .round-step.on .num{
+  background:var(--ar-acc);color:#04070e;box-shadow:0 0 14px rgba(91,140,255,.55)
+}
+.round-steps .round-step.done .num{background:var(--ar-win);color:#04120b}
+.round-step-line{background:var(--ar-line-hi)}
+
+/* 크루 카드 — 승리 상태가 형태로도 읽히게 */
+.crewcard{
+  background:linear-gradient(180deg,#0c1420,#080d16);
+  border:1px solid var(--ar-line);border-radius:10px;position:relative;transition:border-color .16s
+}
+.crewcard::before{
+  content:"";position:absolute;left:0;top:0;bottom:0;width:3px;
+  background:var(--crew,var(--ar-acc));border-radius:10px 0 0 10px
+}
+.crewcard.win{
+  border-color:color-mix(in srgb,var(--ar-gold) 58%,transparent);
+  background:linear-gradient(180deg,color-mix(in srgb,var(--ar-gold) 11%,#0c1420),#080d16);
+  box-shadow:0 0 24px rgba(245,196,81,.15)
+}
+
+/* ---------- 연출 공통: 무대 ---------- */
+.modal,.game-roulette-modal,.player-reveal-modal{
+  background:radial-gradient(64% 52% at 50% 30%,rgba(24,44,86,.5),rgba(3,5,10,.96) 72%),rgba(3,5,10,.97)
+}
+.live-badge{
+  font-family:var(--ar-lat);letter-spacing:.2em;font-size:13px;
+  background:var(--ar-bad);color:#120407;border:0;clip-path:var(--ar-cut-sm);font-weight:400
+}
+
+/* ---------- 종목 룰렛 ---------- */
+.gr-kicker{font-family:var(--ar-lat);letter-spacing:.42em;color:#7ea3e8;font-size:14px}
+.gr-title{font-family:var(--ar-disp);font-weight:900;letter-spacing:.01em;color:#fff;
+  text-shadow:0 0 30px rgba(91,140,255,.4)}
+.gr-sub{color:var(--ar-tx2);font-weight:600}
+.gr-machine{
+  border:1px solid var(--ar-line-hi);border-radius:14px;
+  background:linear-gradient(180deg,#070c15,#04070d);
+  box-shadow:inset 0 0 60px rgba(0,0,0,.75)
+}
+.gr-focus{
+  border-top:2px solid var(--ar-acc);border-bottom:2px solid var(--ar-acc);
+  background:linear-gradient(90deg,rgba(91,140,255,.16),rgba(91,140,255,.05) 50%,rgba(91,140,255,.16));
+  box-shadow:0 0 34px rgba(91,140,255,.42),inset 0 0 26px rgba(91,140,255,.12)
+}
+.gr-item-name{font-family:var(--ar-ui);font-weight:900;letter-spacing:-.01em}
+.gr-item-meta{color:var(--ar-tx3);font-weight:600}
+.gr-result{
+  font-family:var(--ar-lat);letter-spacing:.3em;color:var(--ar-tx3);font-size:15px
+}
+.gr-result strong{
+  display:block;font-family:var(--ar-disp);font-weight:900;letter-spacing:0;
+  font-size:clamp(30px,6vw,56px);color:#fff;margin-top:6px;
+  text-shadow:0 0 34px rgba(91,140,255,.55)
+}
+.gr-stage.spinning .gr-focus{animation:ar-pulse .5s ease-in-out infinite alternate}
+@keyframes ar-pulse{
+  from{box-shadow:0 0 22px rgba(91,140,255,.32),inset 0 0 20px rgba(91,140,255,.08)}
+  to{box-shadow:0 0 46px rgba(91,140,255,.62),inset 0 0 32px rgba(91,140,255,.2)}
+}
+
+/* ---------- 선수 추첨 리빌 ---------- */
+.pr-kicker{font-family:var(--ar-lat);letter-spacing:.44em;color:#7ea3e8}
+.pr-crew-name{font-family:var(--ar-disp);font-weight:900;color:#fff}
+.pr-frame{
+  border:3px solid var(--pr-main,var(--ar-acc));
+  box-shadow:0 0 46px color-mix(in srgb,var(--pr-main,var(--ar-acc)) 55%,transparent),
+             inset 0 0 30px rgba(0,0,0,.6)
+}
+.pr-player-name{
+  font-family:var(--ar-disp);font-weight:900;letter-spacing:.01em;color:#fff;
+  text-shadow:0 0 34px color-mix(in srgb,var(--pr-main,var(--ar-acc)) 62%,transparent)
+}
+.pr-count{font-family:var(--ar-lat);letter-spacing:.12em;color:var(--ar-tx3)}
+.pr-count b{color:#fff;font-family:var(--ar-lat)}
+.pr-status{color:var(--ar-tx2);font-weight:600}
+.pr-picked-card{
+  background:#0b1220;border:1px solid var(--ar-line-hi);border-radius:9px
+}
+
+/* ---------- 우승 연출 ---------- */
+.victory-stage{
+  background:radial-gradient(60% 50% at 50% 42%,rgba(40,70,140,.55),rgba(2,4,9,.97) 70%),rgba(2,4,9,.98)
+}
+.victory-kicker{font-family:var(--ar-lat);letter-spacing:.5em;color:var(--ar-gold);font-size:clamp(13px,1.8vw,19px)}
+.victory-name{
+  font-family:var(--ar-disp);font-weight:900;letter-spacing:.01em;color:#fff;
+  font-size:clamp(44px,12vw,132px);line-height:.96;
+  text-shadow:0 0 60px rgba(245,196,81,.5),0 6px 0 rgba(0,0,0,.4)
+}
+.victory-label{
+  font-family:var(--ar-lat);letter-spacing:.42em;color:var(--ar-gold);
+  border-top:1px solid rgba(245,196,81,.4);padding-top:14px;margin-top:6px;display:inline-block
+}
+
+/* ---------- 토스트 ---------- */
+.toast{
+  background:#0d1524;border:1px solid var(--ar-line-hi);border-left:3px solid var(--ar-acc);
+  border-radius:0 8px 8px 0;font-weight:700;color:var(--ar-tx);
+  box-shadow:0 12px 34px rgba(0,0,0,.6)
+}
+
+/* ---------- 접근성 ---------- */
+@media(prefers-reduced-motion:reduce){
+  .gr-stage.spinning .gr-focus{animation:none}
+  *{transition-duration:.01ms!important}
+}
+
+
+/* ── 아레나 v32 보정: 실제 클래스명 기준 ────────────────────── */
+
+/* 종목 룰렛 — 안내 문장에는 자간을 주지 않습니다(한글이 흩어집니다) */
+.gr-result{letter-spacing:normal;font-family:var(--ar-ui);font-weight:700;
+  color:var(--ar-tx2);font-size:15px}
+.gr-result:has(strong){font-family:var(--ar-lat);letter-spacing:.3em;color:var(--ar-tx3)}
+.gr-result strong{letter-spacing:-.01em}
+
+/* 룰렛 칸 — 파스텔 원색을 눌러서 당첨 칸만 튀게 합니다.
+   background 는 인라인 style 이라 이길 수 없으므로 겹겹이 덮습니다. */
+.gr-item{position:relative;isolation:isolate;border-radius:10px;overflow:hidden}
+.gr-item::after{
+  content:"";position:absolute;inset:0;z-index:-1;
+  background:linear-gradient(90deg,rgba(5,8,14,.86),rgba(5,8,14,.66))
+}
+.gr-item .gr-item-name{color:#fff;text-shadow:0 2px 10px rgba(0,0,0,.6)}
+.gr-item .gr-item-meta{color:#b6c3d8}
+.gr-focus~.gr-track .gr-item{filter:none}
+
+/* 라운드 헤더 */
+.rno{
+  font-family:var(--ar-lat);font-size:16px;font-weight:400;letter-spacing:.1em;
+  background:var(--ar-acc);color:#04070e;border-radius:0;clip-path:var(--ar-cut-sm);padding:3px 12px
+}
+.rno.done{background:var(--ar-win);color:#04120b}
+.gtitle{font-family:var(--ar-disp);font-weight:900;font-size:19px;letter-spacing:-.015em;color:#fff}
+.modetag{
+  font-family:var(--ar-ui);font-weight:800;font-size:11.5px;letter-spacing:.02em;
+  color:#c9d6f0;background:#16203a;border:1px solid #2f4370;border-radius:0;
+  clip-path:var(--ar-cut-sm);padding:3px 11px
+}
+
+/* 크루 대결 카드 */
+.arena{gap:12px}
+.team{
+  background:linear-gradient(180deg,#0c1421,#070c14);
+  border:1px solid var(--ar-line);border-radius:10px;overflow:hidden;
+  transition:border-color .16s,box-shadow .16s
+}
+.team::before{
+  content:"";position:absolute;left:0;top:0;bottom:0;width:3px;
+  background:var(--crew,var(--ar-acc));opacity:.85
+}
+.team:hover{border-color:var(--ar-line-hi)}
+.team.won{
+  border-color:color-mix(in srgb,var(--ar-gold) 62%,transparent);
+  background:linear-gradient(180deg,color-mix(in srgb,var(--ar-gold) 12%,#0c1421),#070c14);
+  box-shadow:0 0 28px rgba(245,196,81,.18);
+}
+.team.won::before{background:var(--ar-gold);opacity:1;
+  box-shadow:0 0 16px color-mix(in srgb,var(--ar-gold) 70%,transparent)}
+.subcrew{border-top:1px solid var(--ar-line)}
+
+/* ── 전광판 ─────────────────────────────────────────────── */
+.broadcast-board{background:linear-gradient(180deg,#080d16,#04070c);border-color:var(--ar-line)}
+.broadcast-kicker{font-family:var(--ar-lat);letter-spacing:.4em;color:#7ea3e8}
+.broadcast-title{font-family:var(--ar-disp);font-weight:900;letter-spacing:-.02em;color:#fff}
+.broadcast-round{
+  font-family:var(--ar-lat);letter-spacing:.12em;color:#04070e;background:var(--ar-gold);
+  clip-path:var(--ar-cut-sm);border-radius:0;font-weight:400
+}
+.broadcast-panel-head{font-family:var(--ar-ui);font-weight:900;letter-spacing:-.01em;color:var(--ar-tx)}
+.broadcast-panel-badge{
+  font-family:var(--ar-lat);letter-spacing:.14em;background:#16203a;border:1px solid #2f4370;
+  color:#bcd0f2;border-radius:0;clip-path:var(--ar-cut-sm)
+}
+.broadcast-crew-card{
+  background:linear-gradient(180deg,#0c1421,#070c14);border:1px solid var(--ar-line);
+  border-radius:10px;position:relative;overflow:hidden
+}
+.broadcast-crew-card::before{
+  content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--crew,var(--ar-acc))
+}
+.broadcast-crew-card.champ{
+  border-color:color-mix(in srgb,var(--ar-gold) 62%,transparent);
+  box-shadow:0 0 30px rgba(245,196,81,.2)
+}
+.broadcast-crew-name{font-family:var(--ar-disp);font-weight:900;letter-spacing:-.015em;color:#fff}
+.broadcast-status-label{font-family:var(--ar-lat);letter-spacing:.2em;color:var(--ar-tx3)}
+.broadcast-status-value{font-weight:900;color:var(--ar-tx)}
+.broadcast-history-round{font-family:var(--ar-lat);letter-spacing:.1em;color:var(--ar-tx3)}
+.broadcast-history-row{border-color:var(--ar-line)}
+.broadcast-side-name{font-weight:900;letter-spacing:-.01em}
+
+/* ── 크루·선수 탭 ───────────────────────────────────────── */
+.crew-roster-card{
+  background:linear-gradient(180deg,#0c1421,#070c14);border:1px solid var(--ar-line);
+  border-radius:11px;position:relative;overflow:hidden
+}
+.crew-roster-card::before{
+  content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--crew,var(--ar-acc))
+}
+.crew-roster-kicker{font-family:var(--ar-lat);letter-spacing:.3em;color:var(--ar-tx3)}
+.crew-roster-title{font-family:var(--ar-disp);font-weight:900;letter-spacing:-.015em;color:#fff}
+.crew-roster-player-name{font-weight:700;color:var(--ar-tx2)}
+.crewbox{background:var(--ar-surface);border-color:var(--ar-line);border-radius:11px}
+.crewhd .nm{font-family:var(--ar-disp);font-weight:900;letter-spacing:-.015em}
+
+/* ── 선수 추첨: 이름 자간 보정 ──────────────────────────── */
+.pr-role{letter-spacing:normal;color:var(--ar-tx2)}
+.pr-nameplate{background:linear-gradient(180deg,rgba(10,16,26,.9),rgba(5,9,15,.9));
+  border:1px solid var(--ar-line-hi)}
+
+
+/* 잘린 모서리 배지는 글자가 모서리에 닿지 않게 양옆 여유를 더 줍니다 */
+.broadcast-round,.rno,.modetag,.broadcast-panel-badge,.live-badge{padding-left:14px;padding-right:14px}
+
+/* ═══════════════════════════════════════════════════════════════
+   아레나 모션 시스템 v33
+   원칙 두 가지:
+   1) transform / opacity / filter 만 애니메이션합니다. box-shadow·background 를
+      매 프레임 바꾸면 GPU가 아니라 CPU가 다시 그리고, OBS에서 프레임이 떨어집니다.
+      빛나는 효과는 의사요소를 깔고 그 opacity 만 움직여서 냅니다.
+   2) 지속 시간은 노출 시간에 비례합니다. 잠깐 뜨는 것은 짧고 세게,
+      오래 떠 있는 것은 길고 약하게.
+   ═══════════════════════════════════════════════════════════════ */
+:root{
+  /* 감속이 강한 곡선 — 빠르게 튀어나와 부드럽게 멎습니다 */
+  --ar-ease:cubic-bezier(.16,1,.3,1);
+  --ar-ease-in:cubic-bezier(.7,0,.84,0);
+  --ar-ease-pop:cubic-bezier(.34,1.56,.64,1);   /* 살짝 넘겼다 돌아오는 임팩트용 */
+  --ar-t-fast:130ms;
+  --ar-t:260ms;
+  --ar-t-slow:520ms;
+}
+
+/* ── 1. 리페인트를 유발하던 애니메이션 교체 ───────────────── */
+
+/* 룰렛 당첨 칸: box-shadow 맥동 → 빛 레이어의 opacity 맥동 */
+.gr-stage.spinning .gr-focus{animation:none}
+.gr-focus{position:relative}
+.gr-focus::after{
+  content:"";position:absolute;inset:-14px;pointer-events:none;opacity:0;
+  background:radial-gradient(60% 120% at 50% 50%,rgba(91,140,255,.55),transparent 72%);
+  will-change:opacity
+}
+.gr-stage.spinning .gr-focus::after{animation:ar-glow .5s ease-in-out infinite alternate}
+@keyframes ar-glow{from{opacity:.28}to{opacity:1}}
+
+/* 선수 추첨 충전: box-shadow 맥동 → scale + 빛 레이어 */
+.pr-stage.is-charging .pr-orbit{animation:ar-orbit-charge .65s ease-in-out infinite alternate}
+@keyframes ar-orbit-charge{to{transform:scale(1.035)}}
+/* 발광은 이미 돌고 있는 고리의 투명도로 냅니다(레이어 추가 없이 GPU만 씁니다) */
+.pr-stage.is-charging .pr-orbit::before{animation:prSpin 10s linear infinite,ar-ring-glow .65s ease-in-out infinite alternate}
+@keyframes ar-ring-glow{from{opacity:.5}to{opacity:1}}
+.pr-orbit::before,.pr-orbit::after{will-change:transform,opacity}
+
+/* 승리 표시 깜빡임: background → opacity */
+@keyframes flash{50%{opacity:.55}}
+
+/* ── 2. 등장 안무 ─────────────────────────────────────────── */
+@keyframes ar-rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+@keyframes ar-punch{
+  0%{transform:scale(.86);opacity:0}
+  62%{transform:scale(1.04);opacity:1}
+  100%{transform:scale(1);opacity:1}
+}
+@keyframes ar-sweep{from{transform:translateX(-120%)}to{transform:translateX(120%)}}
+
+/* 라운드 카드 · 크루 카드 · 전광판 행 — 순서대로 살짝씩 늦게 들어옵니다.
+   6번째부터는 지연을 더 주지 않습니다(목록이 길어도 기다림이 길어지지 않게). */
+.round,.broadcast-crew-card,.crew-roster-card,.broadcast-history-row{
+  animation:ar-rise var(--ar-t-slow) var(--ar-ease) both
+}
+.round:nth-child(1),.broadcast-crew-card:nth-child(1),.crew-roster-card:nth-child(1),.broadcast-history-row:nth-child(1){animation-delay:0ms}
+.round:nth-child(2),.broadcast-crew-card:nth-child(2),.crew-roster-card:nth-child(2),.broadcast-history-row:nth-child(2){animation-delay:45ms}
+.round:nth-child(3),.broadcast-crew-card:nth-child(3),.crew-roster-card:nth-child(3),.broadcast-history-row:nth-child(3){animation-delay:90ms}
+.round:nth-child(4),.broadcast-crew-card:nth-child(4),.crew-roster-card:nth-child(4),.broadcast-history-row:nth-child(4){animation-delay:135ms}
+.round:nth-child(n+5),.broadcast-crew-card:nth-child(n+5),.crew-roster-card:nth-child(n+5),.broadcast-history-row:nth-child(n+5){animation-delay:170ms}
+
+/* 탭을 바꾸면 내용이 밀려 올라옵니다 */
+main section.on{animation:ar-rise var(--ar-t) var(--ar-ease) both}
+
+/* ── 3. 룰렛 당첨 임팩트 ──────────────────────────────────
+   릴이 멎는 순간 .hit 가 붙습니다(JS). 0.7초간만 터뜨립니다. */
+.gr-stage.hit .gr-focus{animation:ar-punch .5s var(--ar-ease-pop) both}
+.gr-stage.hit .gr-focus::after{opacity:1;animation:ar-hit-glow .7s var(--ar-ease) both}
+@keyframes ar-hit-glow{0%{opacity:1;transform:scale(1.25)}100%{opacity:.45;transform:scale(1)}}
+/* 당첨 칸을 가로지르는 섬광 */
+.gr-stage.hit .gr-machine::after{
+  content:"";position:absolute;left:0;right:0;top:50%;height:22%;transform:translateY(-50%);
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.5),transparent);
+  animation:ar-sweep .62s var(--ar-ease) both;pointer-events:none
+}
+.gr-machine{position:relative;overflow:hidden}
+.gr-result strong{animation:ar-punch .46s var(--ar-ease-pop) both}
+
+/* ── 4. 우승 연출 ─────────────────────────────────────────── */
+.victory-stage.on .victory-name{animation:ar-punch .7s var(--ar-ease-pop) both;animation-delay:.12s}
+.victory-stage.on .victory-kicker{animation:ar-rise .5s var(--ar-ease) both}
+.victory-stage.on .victory-label{animation:ar-rise .5s var(--ar-ease) both;animation-delay:.42s}
+
+/* ── 5. 조작 반응 ─────────────────────────────────────────── */
+button{transition:transform var(--ar-t-fast) var(--ar-ease),
+                 box-shadow var(--ar-t) var(--ar-ease),
+                 background var(--ar-t) var(--ar-ease),
+                 border-color var(--ar-t) var(--ar-ease),
+                 color var(--ar-t-fast) linear}
+button:active:not(:disabled){transform:translateY(1px) scale(.985)}
+#tabs button.on::after{animation:ar-tab-in var(--ar-t) var(--ar-ease) both}
+@keyframes ar-tab-in{from{transform:scaleX(.25);opacity:0}to{transform:none;opacity:1}}
+.team,.broadcast-crew-card,.crew-roster-card{transition:border-color var(--ar-t) var(--ar-ease),
+  box-shadow var(--ar-t) var(--ar-ease),transform var(--ar-t-fast) var(--ar-ease)}
+.team:hover{transform:translateY(-2px)}
+.toast{animation:ar-rise var(--ar-t) var(--ar-ease-pop) both}
+
+/* ── 6. 모션 최소화 설정 존중 ─────────────────────────────
+   끄는 게 아니라 '제자리에 즉시 보이게' 만듭니다. 그냥 none 으로 끄면
+   both 로 대기 중이던 요소가 투명한 채 남습니다. */
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{
+    animation-duration:.01ms!important;animation-delay:0ms!important;
+    animation-iteration-count:1!important;transition-duration:.01ms!important
+  }
+}
+
+
+/* ═══════════════════════════════════════════════════════════════
+   에셋 슬롯 v34 — assets/overlay/ 의 그림을 오버레이에 끼웁니다.
+   그림이 없으면 아래에 깔린 기존 그라데이션이 그대로 보입니다(안전 장치).
+   ═══════════════════════════════════════════════════════════════ */
+:root{
+  --as:"assets/overlay";
+  --as-bg-stage:url("assets/overlay/bg-stage.webp");
+  --as-bg-stand:url("assets/overlay/bg-standings.webp");
+  --as-plate-title:url("assets/overlay/plate-title.webp");
+  --as-plate-name:url("assets/overlay/plate-name.webp");
+  --as-corner-l:url("assets/overlay/orn-corner-l.webp");
+  --as-corner-r:url("assets/overlay/orn-corner-r.webp");
+  --as-divider:url("assets/overlay/orn-divider.webp");
+  --as-rosette:url("assets/overlay/orn-rosette.webp");
+}
+
+/* ── 1. 배경판 ──────────────────────────────────────────────
+   글자가 읽히도록 어두운 스크림을 그림 위에 한 겹 깝니다. */
+body.broadcast-overlay-mode #boSceneStandings,
+body.broadcast-overlay-mode #boSceneMatch,
+body.broadcast-overlay-mode #boSceneResult{
+  background-repeat:no-repeat!important;
+  background-position:center center!important;
+  background-size:cover!important;
+}
+body.broadcast-overlay-mode #boSceneStandings{
+  background-image:
+    linear-gradient(180deg,rgba(3,6,11,.90) 0 22vh,rgba(3,6,11,.72) 52vh,rgba(3,6,11,.88) 100%),
+    radial-gradient(78vw 70vh at 50% 46%,transparent 34%,rgba(2,4,8,.72) 100%),
+    var(--as-bg-stand)!important;
+}
+body.broadcast-overlay-mode #boSceneMatch,
+body.broadcast-overlay-mode #boSceneResult{
+  background-image:
+    linear-gradient(180deg,rgba(3,6,11,.90) 0 20vh,rgba(3,6,11,.62) 50vh,rgba(3,6,11,.86) 100%),
+    radial-gradient(74vw 66vh at 50% 44%,transparent 30%,rgba(2,4,8,.76) 100%),
+    var(--as-bg-stage)!important;
+}
+
+/* ── 2. 상단 현수막 ────────────────────────────────────────
+   .bo-topline 뒤에 천 배너를 깔고 그 위에 대회명을 올립니다. */
+body.broadcast-overlay-mode .bo-topline{
+  position:relative!important;isolation:isolate;
+  min-height:13.5vh!important;
+  padding-left:4.5vw!important;padding-right:4.5vw!important;
+  align-items:center!important;
+}
+body.broadcast-overlay-mode .bo-topline::before{
+  content:"";position:absolute;z-index:-1;
+  left:1.5vw;right:1.5vw;top:.4vh;height:13vh;
+  background:var(--as-plate-title) center/100% 100% no-repeat;
+  filter:drop-shadow(0 1.2vh 1.6vh rgba(0,0,0,.6));
+}
+body.broadcast-overlay-mode .bo-brand{
+  color:#fff7e6!important;
+  text-shadow:0 .2vh .5vh rgba(0,0,0,.75),0 0 3vw rgba(245,196,81,.28)!important;
+}
+body.broadcast-overlay-mode .bo-subbrand{color:#c3b391!important;letter-spacing:.24em!important}
+body.broadcast-overlay-mode .bo-round-pill{
+  background:rgba(8,10,16,.72)!important;border-color:rgba(214,178,98,.6)!important;
+  color:#f3e3c0!important;
+}
+
+/* ── 3. 코너 장식 ──────────────────────────────────────────
+   씬마다 위 두 모서리에. 장식이므로 스크린리더에는 없는 요소입니다. */
+body.broadcast-overlay-mode .bo-scene::before,
+body.broadcast-overlay-mode .bo-scene::after{
+  content:"";position:absolute;top:14.6vh;width:9vh;height:9vh;z-index:2;
+  opacity:.9;pointer-events:none;
+  background-size:contain;background-repeat:no-repeat}
+body.broadcast-overlay-mode .bo-scene::before{left:1.6vw;background-image:var(--as-corner-l);background-position:left top}
+body.broadcast-overlay-mode .bo-scene::after{right:1.6vw;background-image:var(--as-corner-r);background-position:right top}
+
+/* ── 4. 구분선 ────────────────────────────────────────────── */
+body.broadcast-overlay-mode #boSceneMatch .bo-game-head::after,
+body.broadcast-overlay-mode #boSceneStandings .bo-section-sub::after{
+  content:"";display:block;width:26vw;height:2.4vh;margin:1.1vh auto 0;
+  background:var(--as-divider) center/contain no-repeat;opacity:.85}
+
+/* ── 5. 크루 네임플레이트 ─────────────────────────────────
+   순위표의 크루 이름 칸 뒤에 금속 명패를 깝니다. */
+body.broadcast-overlay-mode #boSceneStandings .bo-standing-info{
+  position:relative!important;isolation:isolate;
+  display:flex!important;align-items:center!important;
+  padding-left:1.6vw!important;min-height:7.4vh!important}
+body.broadcast-overlay-mode #boSceneStandings .bo-standing-info::before{
+  content:"";position:absolute;z-index:-1;inset:.7vh -.6vw .7vh 0;
+  background:var(--as-plate-name) center/100% 100% no-repeat;
+  filter:drop-shadow(0 .5vh .8vh rgba(0,0,0,.55))}
+body.broadcast-overlay-mode #boSceneStandings .bo-standing-info b{
+  color:#fff6e4!important;text-shadow:0 .16vh .4vh rgba(0,0,0,.8)!important}
+
+/* ── 6. 결과 씬: 우승 리본 ────────────────────────────────── */
+body.broadcast-overlay-mode #boSceneResult .bo-result-kicker{
+  position:relative!important;padding-top:11vh!important}
+body.broadcast-overlay-mode #boSceneResult .bo-result-kicker::before{
+  content:"";position:absolute;left:50%;top:0;transform:translateX(-50%);
+  width:10vh;height:10vh;background:var(--as-rosette) center/contain no-repeat;
+  filter:drop-shadow(0 .8vh 1.4vh rgba(0,0,0,.6))}
+body.broadcast-overlay-mode #boSceneResult .bo-result-win{
+  color:#f6e6bf!important;text-shadow:0 0 3vw rgba(245,196,81,.4)!important}
+
+/* ── 7. 모션 최소화 ──────────────────────────────────────── */
+@media(prefers-reduced-motion:reduce){
+  body.broadcast-overlay-mode .bo-scene::before,
+  body.broadcast-overlay-mode .bo-scene::after{transition:none}
+}
+
+
+/* ── 에셋 슬롯 v34 보정: 실제 치수에 맞춤 ───────────────────── */
+
+/* 현수막 띠를 글자에 맞춰 키우고, 글자를 천 안쪽 평평한 곳에 앉힙니다.
+   기존 규칙이 topline 높이를 108px 로 못박아 두어 글자가 천 위로 넘쳤습니다. */
+body.broadcast-overlay-mode .bo-topline{
+  height:15.5vh!important;min-height:15.5vh!important;flex:0 0 15.5vh!important;
+  padding:0 5.5vw!important;align-items:center!important}
+body.broadcast-overlay-mode .bo-topline::before{
+  left:1.2vw;right:1.2vw;top:1.1vh;height:13.2vh}
+body.broadcast-overlay-mode .bo-brand{
+  font-size:5.6vh!important;line-height:1.02!important}
+body.broadcast-overlay-mode .bo-subbrand{
+  font-size:1.5vh!important;line-height:1.3!important;margin-top:.5vh!important}
+body.broadcast-overlay-mode .bo-round-pill{font-size:2.4vh!important;padding:.7vh 1.4vw!important}
+
+/* 코너 장식은 여백이 있는 결과 씬에만. 촘촘한 씬에 뿌리면 지저분해집니다. */
+body.broadcast-overlay-mode .bo-scene::before,
+body.broadcast-overlay-mode .bo-scene::after{content:none}
+body.broadcast-overlay-mode #boSceneResult::before,
+body.broadcast-overlay-mode #boSceneResult::after{
+  content:"";position:absolute;bottom:2.2vh;width:11vh;height:11vh;z-index:2;
+  opacity:.82;pointer-events:none;background-size:contain;background-repeat:no-repeat}
+body.broadcast-overlay-mode #boSceneResult::before{
+  left:2vw;background-image:var(--as-corner-l);background-position:left bottom;transform:scaleY(-1)}
+body.broadcast-overlay-mode #boSceneResult::after{
+  right:2vw;background-image:var(--as-corner-r);background-position:right bottom;transform:scaleY(-1)}
+
+/* 대진 카드가 불투명해서 체육관 배경을 완전히 가리고 있었습니다.
+   반투명으로 낮춰 뒤가 비치게 합니다. */
+body.broadcast-overlay-mode #boSceneMatch .bo-team{
+  background:linear-gradient(90deg,
+    color-mix(in srgb,var(--crew) 24%,rgba(4,8,14,.66)),
+    rgba(4,8,14,.52) 58%,
+    color-mix(in srgb,var(--crew) 12%,rgba(4,8,14,.6)))!important}
+body.broadcast-overlay-mode #boSceneStandings .bo-standing-row{
+  background:linear-gradient(90deg,
+    color-mix(in srgb,var(--crew) 20%,rgba(5,9,16,.62)),rgba(5,9,16,.5))!important}
+
+
+/* ── 에셋 슬롯 v34 보정 2 ───────────────────────────────────
+   상단 바를 15.5vh 로 키웠더니 아래 내용이 전부 밀려 잘렸습니다.
+   원래 높이(약 10vh)에 가깝게 되돌리고, 대신 글자를 줄여 천 안에 앉힙니다. */
+body.broadcast-overlay-mode .bo-topline{
+  height:11.4vh!important;min-height:11.4vh!important;flex:0 0 11.4vh!important;
+  padding:0 5vw!important}
+body.broadcast-overlay-mode .bo-topline::before{
+  left:1.2vw;right:1.2vw;top:.7vh;height:10vh}
+body.broadcast-overlay-mode .bo-brand{font-size:4.3vh!important;line-height:1.04!important}
+body.broadcast-overlay-mode .bo-subbrand{font-size:1.25vh!important;margin-top:.35vh!important}
+body.broadcast-overlay-mode .bo-round-pill{font-size:2vh!important;padding:.55vh 1.1vw!important}
+
+/* 결과 씬 — 리본이 흐름을 밀지 않도록 절대 배치로 바꿉니다 */
+body.broadcast-overlay-mode #boSceneResult .bo-result-kicker{padding-top:0!important}
+body.broadcast-overlay-mode #boSceneResult .bo-result-kicker::before{content:none}
+body.broadcast-overlay-mode #boSceneResult .bo-result-center{position:relative!important}
+body.broadcast-overlay-mode #boSceneResult .bo-result-center::before{
+  content:"";position:absolute;left:50%;top:-1vh;transform:translate(-50%,-100%);
+  width:9vh;height:9vh;background:var(--as-rosette) center/contain no-repeat;
+  filter:drop-shadow(0 .7vh 1.2vh rgba(0,0,0,.6));opacity:.95;pointer-events:none}
+
+/* 크루 이름이 너무 작게 나오던 것 — 결과 씬의 주인공입니다 */
+body.broadcast-overlay-mode #boSceneResult .bo-crew-banner-fallback{
+  font-size:9vh!important;line-height:1!important;font-weight:900!important;
+  color:#fff7e6!important;letter-spacing:-.03em!important;
+  text-shadow:0 .4vh 0 rgba(0,0,0,.5),0 0 4vw rgba(245,196,81,.35)!important;
+  background:none!important;border:0!important;padding:0!important}
+
+/* 코너 장식 — 결과 씬 아래 두 모서리 */
+body.broadcast-overlay-mode #boSceneResult::before,
+body.broadcast-overlay-mode #boSceneResult::after{bottom:1.4vh;width:9vh;height:9vh;opacity:.7}
+
+
+/* 코너 장식이 위로 붙던 문제 — 앞선 규칙의 top 값을 풀어줍니다 */
+body.broadcast-overlay-mode #boSceneResult::before,
+body.broadcast-overlay-mode #boSceneResult::after{top:auto!important}
+
+/* ── 순위표 명패 보정 ──────────────────────────────────────
+   로고 자리의 대체 텍스트와 명패 글자가 겹쳐 크루명이 두 번 나왔습니다.
+   로고를 실제로 올리면 그 그림이 들어가고, 없으면 명패 글자만 남깁니다. */
+body.broadcast-overlay-mode #boSceneStandings .bo-standing-logo-fallback{
+  display:none!important}
+body.broadcast-overlay-mode #boSceneStandings .bo-standing-logo{
+  background:none!important;border:0!important;box-shadow:none!important}
+body.broadcast-overlay-mode #boSceneStandings .bo-standing-info{
+  justify-content:center!important;padding-left:0!important;padding-right:0!important;
+  overflow:visible!important}
+body.broadcast-overlay-mode #boSceneStandings .bo-standing-info::before{
+  inset:.9vh 0!important}
+body.broadcast-overlay-mode #boSceneStandings .bo-standing-info b{
+  font-size:4vh!important;line-height:1!important;white-space:nowrap!important;
+  max-width:88%!important;overflow:hidden!important;text-overflow:ellipsis!important}
 </style>
 <!-- app-build: tiered-fair-draw-v29-20260825 -->
 </head>
@@ -4159,7 +4800,7 @@ function runGameSpin(pool,target,presetSeq,dur,onFinish){
   GR.tickTimer=setInterval(()=>blip(1120,0.018,'square',0.025),55);
 
   requestAnimationFrame(()=>{
-    track.style.transition='transform '+dur+'s cubic-bezier(.08,.76,.13,1)';
+    track.style.transition='transform '+dur+'s cubic-bezier(.12,.86,.08,1)';
     track.style.transform='translateY('+finalY+'px)';
   });
 
@@ -4168,6 +4809,10 @@ function runGameSpin(pool,target,presetSeq,dur,onFinish){
     dingdong();
     GR.spinning=false;GR.result=target;
     stage.classList.remove('spinning');
+    // 당첨 임팩트 — CSS 의 .hit 안무를 0.76초만 돌립니다.
+    stage.classList.remove('hit');void stage.offsetWidth;stage.classList.add('hit');
+    clearTimeout(GR.hitTimer);
+    GR.hitTimer=setTimeout(function(){stage.classList.remove('hit');},760);
     document.getElementById('grResult').innerHTML='SELECTED GAME<strong>'+esc(target.name)+'</strong>';
     if(onFinish)onFinish();
   },dur*1000+120);
@@ -4246,6 +4891,8 @@ function closeGameRoulette(){
   const wasOpen=modal.classList.contains('on');
   modal.classList.remove('on');modal.setAttribute('aria-hidden','true');
   clearInterval(GR.tickTimer);GR.tickTimer=null;
+  clearTimeout(GR.hitTimer);GR.hitTimer=null;
+  const st=document.getElementById('gameRouletteStage'); if(st)st.classList.remove('hit');
   if(wasOpen&&!LIVE.active) sendDraw({kind:'game',phase:'close'});
   setTimeout(flushPendingRemote,0);
 }

@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>크루 대항 종합게임</title>
-<meta name="app-build" content="asset-slots-v34-20260922">
+<meta name="app-build" content="asset-tune-v35-20260922">
 <meta name="description" content="크루 대항 종합게임 - 대진 룰렛, 종목 슬롯머신, 출전자 추첨, 실시간 전광판">
 <meta property="og:title" content="크루 대항 종합게임">
 <meta property="og:description" content="대진 룰렛 · 종목 슬롯머신 · 출전자 추첨 · 실시간 전광판">
@@ -2789,6 +2789,50 @@ body.broadcast-overlay-mode #boSceneStandings .bo-standing-info::before{
 body.broadcast-overlay-mode #boSceneStandings .bo-standing-info b{
   font-size:4vh!important;line-height:1!important;white-space:nowrap!important;
   max-width:88%!important;overflow:hidden!important;text-overflow:ellipsis!important}
+
+/* ── v35: 크루 색이 배경을 덮던 문제 ──────────────────────────
+   크루 색을 행 전체에 깔았더니(24%) 채도 높은 색에서 색면이 되어
+   체육관 배경이 하나도 안 보였습니다.
+   색은 '왼쪽 가장자리 신호'로만 쓰고, 나머지는 글자가 읽힐 만큼만 덮습니다. */
+
+/* 씬 스크림을 걷어 배경이 실제로 보이게 */
+body.broadcast-overlay-mode #boSceneStandings{
+  background-image:
+    linear-gradient(180deg,rgba(3,6,11,.88) 0 13vh,rgba(3,6,11,.42) 34vh,rgba(3,6,11,.62) 100%),
+    radial-gradient(80vw 72vh at 50% 48%,transparent 42%,rgba(2,4,8,.58) 100%),
+    var(--as-bg-stand)!important}
+body.broadcast-overlay-mode #boSceneMatch,
+body.broadcast-overlay-mode #boSceneResult{
+  background-image:
+    linear-gradient(180deg,rgba(3,6,11,.88) 0 13vh,rgba(3,6,11,.34) 36vh,rgba(3,6,11,.58) 100%),
+    radial-gradient(78vw 70vh at 50% 46%,transparent 40%,rgba(2,4,8,.62) 100%),
+    var(--as-bg-stage)!important}
+
+/* 대진 행 — 색은 왼쪽 18%만, 나머지는 얇은 스크림 */
+body.broadcast-overlay-mode #boSceneMatch .bo-team{
+  background:
+    linear-gradient(90deg,color-mix(in srgb,var(--crew) 46%,transparent) 0,transparent 18%),
+    linear-gradient(180deg,rgba(3,7,13,.40),rgba(3,7,13,.28))!important}
+
+/* 순위 행 — 같은 원칙 */
+body.broadcast-overlay-mode #boSceneStandings .bo-standing-row{
+  background:
+    linear-gradient(90deg,color-mix(in srgb,var(--crew) 46%,transparent) 0,transparent 22%),
+    linear-gradient(180deg,rgba(4,8,15,.42),rgba(4,8,15,.30))!important}
+
+/* 색을 뺀 만큼 왼쪽 레일을 또렷하게 — 크루 구분은 여기서 냅니다 */
+body.broadcast-overlay-mode #boSceneMatch .bo-team::before,
+body.broadcast-overlay-mode #boSceneStandings .bo-standing-row::before{
+  width:.55vw!important;
+  box-shadow:0 0 1.6vw color-mix(in srgb,var(--crew) 75%,transparent)!important}
+
+/* 사진 위의 글자는 그림자를 더 줘야 읽힙니다 */
+body.broadcast-overlay-mode .bo-player-name,
+body.broadcast-overlay-mode .bo-standing-info b,
+body.broadcast-overlay-mode .bo-game-title,
+body.broadcast-overlay-mode .bo-lineup-wait{
+  text-shadow:0 .2vh .6vh rgba(0,0,0,.9),0 0 1.2vw rgba(0,0,0,.7)!important}
+
 </style>
 <!-- app-build: tiered-fair-draw-v29-20260825 -->
 </head>

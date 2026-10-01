@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>크루 대항 종합게임</title>
-<meta name="app-build" content="auth-realtime-v44-20261001">
+<meta name="app-build" content="session-guard-v45-20261001">
 <meta name="description" content="크루 대항 종합게임 - 대진 룰렛, 종목 슬롯머신, 출전자 추첨, 실시간 전광판">
 <meta property="og:title" content="크루 대항 종합게임">
 <meta property="og:description" content="대진 룰렛 · 종목 슬롯머신 · 출전자 추첨 · 실시간 전광판">
@@ -3965,18 +3965,49 @@ function describeRemoteError(e){
 function isAuthProblem(e){ return describeRemoteError(e)==='세션 만료'; }
 async function recoverAuthIfNeeded(e){
   if(!sb||!currentUser||!isAuthProblem(e))return false;
+  const ok=await hardRefreshSession();
+  if(ok){ setSyncState('세션 재연결됨','busy'); toast('관리자 세션을 다시 연결했습니다.'); }
+  return ok;
+}
+let sessionExpiredNotified=false;
+/* 저장 직전에 토큰이 살아 있는지 확인합니다.
+   방송 중엔 탭이 오래 떠 있어서 토큰이 조용히 만료되는데,
+   그러면 DB 저장만 막히고 중계(broadcast)는 계속 되기 때문에 '룰렛만 연동되는' 증상이 납니다. */
+async function ensureFreshSession(){
+  if(!sb||!currentUser)return true;
+  try{
+    const {data}=await sb.auth.getSession();
+    const ses=data&&data.session;
+    if(!ses)return await hardRefreshSession();
+    const leftMs=(Number(ses.expires_at)||0)*1000-Date.now();
+    if(leftMs<120000)return await hardRefreshSession();   // 2분 미만 남았으면 미리 갱신
+    sessionExpiredNotified=false;
+    return true;
+  }catch(e){ console.error(e); return false; }
+}
+async function hardRefreshSession(){
   try{
     const {data,error}=await sb.auth.refreshSession();
-    if(error||!data||!data.session)throw error||new Error('세션 갱신 실패');
-    currentUser=data.session.user; updateAuthUI();
-    setSyncState('세션 재연결됨','busy'); toast('관리자 세션을 다시 연결했습니다.');
+    if(error||!data||!data.session)throw error||new Error('세션 없음');
+    currentUser=data.session.user;
+    sessionExpiredNotified=false;
+    updateAuthUI();
+    await resyncAuthRealtime();
     return true;
   }catch(err){
-    console.error(err);
-    setSyncState('세션 만료 · 다시 로그인','err');
-    toast('관리자 세션이 만료되었습니다. 로그아웃 후 다시 로그인해 주세요.');
+    console.error('[세션 갱신 실패]',err);
+    announceSessionExpired(err);
     return false;
   }
+}
+/* 세션이 완전히 끊긴 경우. 조용히 실패하면 결과가 안 올라간 걸 모르니 눈에 띄게 알립니다. */
+function announceSessionExpired(err){
+  setSyncState('세션 만료 · 다시 로그인','err');
+  if(sessionExpiredNotified)return;
+  sessionExpiredNotified=true;
+  const raw=String((err&&(err.message||err.error_description))||'').slice(0,80);
+  toast('로그인이 풀려서 결과가 서버에 저장되지 않습니다. 다시 로그인해 주세요.'+(raw?' ('+raw+')':''));
+  try{ const dlg=document.getElementById('authDialog'); if(dlg&&!dlg.open)dlg.showModal(); }catch(e){}
 }
 function noteRemoteError(e,where){
   lastRemoteError=where+' 실패 · '+describeRemoteError(e);
@@ -4004,6 +4035,13 @@ async function saveRemote(isRetry){
   remoteSaveInFlight=true; remoteSaveQueued=false;
   const snapshotVersion=remoteLocalVersion;
   setSyncState(isRetry?'저장 재시도 중':'저장 중','busy');
+  // 쓰기 권한이 살아 있는지 먼저 확인합니다. 만료면 저장을 시도하지 않고 재로그인을 유도합니다.
+  const sessionOk=await ensureFreshSession();
+  if(!sessionOk){
+    remoteDirty=true; remoteSaveInFlight=false;
+    scheduleRemoteSaveRetry();
+    return false;
+  }
   const snapshot=cloneState(S);
   const updatedAt=new Date().toISOString();
   const localSavedAt=Date.now();
@@ -4303,13 +4341,27 @@ async function loginAdmin(email,password){
   const {data,error}=await sb.auth.signInWithPassword({email,password});
   if(error)throw error;
   currentUser=data.user;
+  sessionExpiredNotified=false;
   await resyncAuthRealtime();
-  const found=await loadRemoteState();
-  if(!found)render(true);
+  // 로그인이 풀린 동안 만든 결과가 남아 있으면 먼저 서버에 올리고, 없으면 서버 상태를 받아옵니다.
+  if(remoteDirty){
+    clearRemoteSaveRetry(); remoteSaveRetryAttempt=0;
+    await saveRemote(false);
+    render(true);
+  }else{
+    const found=await loadRemoteState();
+    if(!found)render(true);
+  }
   applyAccessMode();
 }
 async function logoutAdmin(){
   if(!sb)return;
+  // 서버에 못 올린 결과가 남아 있으면 로그아웃으로 날리기 전에 한 번 더 시도합니다.
+  if(remoteDirty){
+    const ok=await ensureFreshSession();
+    if(ok)await saveRemote(false);
+    if(remoteDirty&&!confirm('서버에 저장되지 않은 결과가 있습니다.\n로그아웃하면 이 화면의 변경이 사라집니다. 계속할까요?'))return;
+  }
   closeRoulette();
   const {error}=await sb.auth.signOut(); if(error)console.error(error);
   currentUser=null; remoteDirty=false; clearRemoteSaveRetry(); crewEditMode=false; renderCrews(); applyAccessMode();

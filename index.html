@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>크루 대항 종합게임</title>
-<meta name="app-build" content="session-guard-v45-20261001">
+<meta name="app-build" content="session-keepalive-v46-20261001">
 <meta name="description" content="크루 대항 종합게임 - 대진 룰렛, 종목 슬롯머신, 출전자 추첨, 실시간 전광판">
 <meta property="og:title" content="크루 대항 종합게임">
 <meta property="og:description" content="대진 룰렛 · 종목 슬롯머신 · 출전자 추첨 · 실시간 전광판">
@@ -3858,6 +3858,7 @@ function isTypingNow(){
 }
 function applyRemoteState(d,label){
   if(!validState(d))return;
+  sessionExpiredNotified=false;   // 성공했으니 만료 경고를 내립니다.
   applyingRemote=true;
   S=migrate(cleanRemoteState(d));
   try{localStorage.setItem(LS,JSON.stringify(S));}catch(e){}
@@ -3981,7 +3982,10 @@ async function ensureFreshSession(){
     if(!ses)return await hardRefreshSession();
     const leftMs=(Number(ses.expires_at)||0)*1000-Date.now();
     if(leftMs<120000)return await hardRefreshSession();   // 2분 미만 남았으면 미리 갱신
-    sessionExpiredNotified=false;
+    if(sessionExpiredNotified){                            // 지난 만료 경고가 남아 있으면 내립니다.
+      sessionExpiredNotified=false;
+      setSyncState(remoteRealtimeConnected?'동기화 정상':'서버 재연결 중',remoteRealtimeConnected?'ok':'busy');
+    }
     return true;
   }catch(e){ console.error(e); return false; }
 }
@@ -4070,6 +4074,7 @@ async function saveRemote(isRetry){
     remoteLastLocalSavedAt=Math.max(remoteLastLocalSavedAt,localSavedAt);
     if(snapshotVersion===remoteLocalVersion)remoteDirty=false;
     remoteSaveRetryAttempt=0; clearRemoteSaveRetry();
+    sessionExpiredNotified=false;
     setSyncState(remoteRealtimeConnected?'동기화 정상':'저장됨 · 재연결 중',remoteRealtimeConnected?'ok':'busy');
   }catch(error){
     console.error(error);
@@ -4123,6 +4128,8 @@ function startRemoteHealthCheck(){
       if(!remoteSaveInFlight&&!remoteSaveTimer)scheduleRemoteSaveRetry();
       return;
     }
+    // 방송 중 토큰이 조용히 만료되지 않도록 미리 수명을 챙깁니다(만료 2분 전부터만 실제 갱신).
+    if(currentUser)ensureFreshSession();
     // 관리자·관람자 모두 Realtime 이벤트 유실에 대비해 서버의 updated_at을 가볍게 재확인합니다.
     recheckRemoteNow();
   },10000);
@@ -4132,6 +4139,7 @@ function startRemoteHealthCheck(){
    창을 다시 켜거나 네트워크가 돌아올 때마다 서버를 한 번 더 봅니다. */
 function recheckRemoteNow(){
   if(!sb)return;
+  if(currentUser)ensureFreshSession();
   if(interactionBusy()||remoteSaveInFlight||remoteSaveTimer||remoteDirty)return;
   if(pendingRemoteState){ flushPendingRemote(); if(pendingRemoteState)return; }
   loadRemoteState({quiet:true,onlyIfNewer:true,label:'동기화 정상'});
@@ -4353,6 +4361,7 @@ async function loginAdmin(email,password){
     if(!found)render(true);
   }
   applyAccessMode();
+  if(!remoteDirty)setSyncState(remoteRealtimeConnected?'동기화 정상':'서버 재연결 중',remoteRealtimeConnected?'ok':'busy');
 }
 async function logoutAdmin(){
   if(!sb)return;

@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>크루 대항 종합게임</title>
-<meta name="app-build" content="unify-world-v40-20260922">
+<meta name="app-build" content="slim-state-v41-20261001">
 <meta name="description" content="크루 대항 종합게임 - 대진 룰렛, 종목 슬롯머신, 출전자 추첨, 실시간 전광판">
 <meta property="og:title" content="크루 대항 종합게임">
 <meta property="og:description" content="대진 룰렛 · 종목 슬롯머신 · 출전자 추첨 · 실시간 전광판">
@@ -3740,16 +3740,22 @@ function referencePhotoForName(name){
   }
   return '';
 }
+/* 선수 사진 해석 — '표시할 때만' 기본 사진을 찾아 씁니다.
+   예전에는 찾은 사진을 m.photo 에 다시 써 넣어서, 45명치 base64 가
+   통째로 상태에 눌러앉고 저장할 때마다 전부 업로드됐습니다. */
+function memberPhoto(m){
+  if(!m)return '';
+  const p=String(m.photo||'').trim();
+  if(p)return p;
+  return referencePhotoForName(m.name)||'';
+}
 function avatarFallback(img){
   const name=img&&img.dataset?img.dataset.name:'';
   const fallback=referencePhotoForName(name);
   if(!fallback)return;
   img.onerror=null;
   img.src=fallback;
-  for(const c of S.crews||[]){
-    const m=(c.members||[]).find(x=>x.name===name);
-    if(m){m.photo=fallback;break;}
-  }
+  // 상태에는 쓰지 않습니다. 기본 사진은 이름으로 언제든 다시 찾을 수 있습니다.
 }
 function applyReferenceRosterToCrew(c){
   const ref=REFERENCE_ROSTERS[c.name];
@@ -3765,7 +3771,7 @@ function applyReferenceRosterToCrew(c){
     c.members=ref.map((r,i)=>({
       id:(old[i]&&old[i].id)||uid(),
       name:r.name,
-      photo:r.file,
+      photo:'',   // 기본 사진은 이름으로 찾습니다. 상태에 넣지 않습니다.
       appearanceLimitOverride:(old[i]&&Number.isFinite(Number(old[i].appearanceLimitOverride))&&Number(old[i].appearanceLimitOverride)>=0)?Math.min(99,Math.floor(Number(old[i].appearanceLimitOverride))):null
     }));
     return;
@@ -3784,8 +3790,10 @@ function applyReferenceRosterToCrew(c){
     // 예전 버전에 저장된 상대경로는 현재 HTML 내장 이미지로 교체
     const isLegacy=!p || /^\.?\/?assets\/avatars\//i.test(p);
 
-    if(isLegacy || !isExternal){
-      m.photo=photos[m.name];
+    // 기본 사진이면 상태에서 비워둡니다(표시할 때 이름으로 찾습니다).
+    // 관리자가 올린 사진(https/blob)만 상태에 남깁니다.
+    if(isLegacy || !isExternal || p===photos[m.name]){
+      m.photo='';
     }
   });
 }
@@ -3924,6 +3932,7 @@ async function loadRemoteState(opt){
     return false;
   }
 }
+const STATE_SIZE_WARN=200*1024; // 이보다 커지면 저장이 느려집니다.
 function clearRemoteSaveRetry(){
   if(remoteSaveRetryTimer){clearTimeout(remoteSaveRetryTimer);remoteSaveRetryTimer=null;}
 }
@@ -3949,6 +3958,19 @@ async function saveRemote(isRetry){
   const localSavedAt=Date.now();
   snapshot.__sync={clientId:SYNC_CLIENT_ID,seq:++remoteSeq,savedAt:localSavedAt};
   let ok=false;
+  /* 저장 용량 감시 — 상태가 비정상적으로 커지면(사진이 통째로 박히는 등) 콘솔에 바로 알립니다. */
+  try{
+    const bytes=JSON.stringify(snapshot).length;
+    if(bytes>STATE_SIZE_WARN){
+      console.warn('[저장 용량 경고] 상태가 '+Math.round(bytes/1024)+'KB 입니다. 저장이 느려질 수 있습니다.');
+      let worst='',worstLen=0;
+      (snapshot.crews||[]).forEach(function(c){
+        (c.members||[]).forEach(function(m){ const L=String(m.photo||'').length; if(L>worstLen){worstLen=L;worst=c.name+' / '+m.name;} });
+        const L=String(c.banner||'').length; if(L>worstLen){worstLen=L;worst=c.name+' 배너';}
+      });
+      if(worstLen>2000)console.warn('[저장 용량 경고] 가장 큰 항목: '+worst+' ('+Math.round(worstLen/1024)+'KB)');
+    }
+  }catch(e){}
   try{
     const query=sb.from(SB_TABLE).upsert({id:SB_STATE_ID,data:snapshot,updated_at:updatedAt},{onConflict:'id'});
     const timeout=new Promise((_,reject)=>setTimeout(()=>reject(new Error('SAVE_TIMEOUT')),6500));
@@ -4284,6 +4306,8 @@ function migrate(d){
     if(Array.isArray(c.members))c.members.forEach(m=>{
       if(!m)return;
       m.photo=safeImageSrc(m.photo)||null;
+      // 이미 서버에 저장된 기본 사진(base64)은 비웁니다 — 다음 저장부터 가벼워집니다.
+      if(m.photo&&m.photo===referencePhotoForName(m.name))m.photo='';
       const raw=m.appearanceLimitOverride;
       const ov=raw===''||raw==null?NaN:Number(raw);
       m.appearanceLimitOverride=Number.isFinite(ov)&&ov>=0?Math.min(99,Math.floor(ov)):null;
@@ -5055,7 +5079,8 @@ function prMember(id){
 }
 function prAvatarMini(m){
   if(!m)return '';
-  if(m.photo) return '<img src="'+esc(m.photo)+'" alt="">';
+  const mp=memberPhoto(m);
+  if(mp) return '<img src="'+esc(mp)+'" alt="">';
   const ini=esc((m.name||'?').trim().charAt(0)||'?');
   return '<div class="pr-picked-avatar">'+ini+'</div>';
 }
@@ -5965,17 +5990,9 @@ function renderBoard(){
 
 function avatar(m){
   const ini=esc((m.name||'?').trim().charAt(0)||'?');
-  let src=String(m.photo||'');
-
-  if(/^\.?\/?assets\/avatars\//i.test(src)){
-    const fallback=referencePhotoForName(m.name);
-    if(fallback){src=fallback;m.photo=fallback;}
-  }
-
-  if(!src){
-    const fallback=referencePhotoForName(m.name);
-    if(fallback){src=fallback;m.photo=fallback;}
-  }
+  let src=memberPhoto(m);
+  // 예전 저장본의 상대경로는 기본 사진으로 대체합니다(상태는 건드리지 않습니다).
+  if(/^\.?\/?assets\/avatars\//i.test(src))src=referencePhotoForName(m.name)||'';
 
   return src
     ?'<img class="av" data-name="'+esc(m.name||'')+'" src="'+esc(src)+'" alt="'+esc(m.name||'')+'" onerror="avatarFallback(this)">'
@@ -6244,7 +6261,7 @@ function renderCrews(){
 }
 function renderStoreInfo(){
   let kb=0; try{ kb=Math.round((localStorage.getItem(LS)||'').length/1024); }catch(e){}
-  const ph=S.crews.reduce((n,c)=>n+c.members.filter(m=>m.photo).length,0);
+  const ph=S.crews.reduce((n,c)=>n+c.members.filter(m=>memberPhoto(m)).length,0);
   const bn=S.crews.filter(c=>c.banner).length;
   document.getElementById('storeInfo').textContent=(SUPABASE_READY?'Supabase 연동 · 로컬 비상 백업 ':'로컬 저장 ')+kb+'KB · 프로필 사진 '+ph+'장 · 크루 배너 '+bn+'개';
 }
@@ -7036,7 +7053,7 @@ function boWaitBannerHTML(c){
     const members=ids.map(mid=>c.members.find(m=>m.id===mid)).filter(Boolean);
     if(!members.length) return;
     const g=game(r.gameId);
-    const payload={crew:{id:c.id,name:c.name,color:c.color,banner:c.banner||null},members:members.map(m=>({id:m.id,name:m.name,photo:m.photo||null})),gameName:g?g.name:''};
+    const payload={crew:{id:c.id,name:c.name,color:c.color,banner:c.banner||null},members:members.map(m=>({id:m.id,name:m.name,photo:memberPhoto(m)||null})),gameName:g?g.name:''};
     showEntryShowcaseData(payload);
     sendDraw({kind:'entry',phase:'show',crew:payload.crew,members:payload.members,gameName:payload.gameName});
   }
@@ -7094,7 +7111,7 @@ function boWaitBannerHTML(c){
   revealNextPlayer=function(){
     if(PR.spinning||PR.index>=PR.selected.length)return;
     const m=prMember(PR.selected[PR.index]);if(!m)return;
-    sendDraw({kind:'player',phase:'reveal',index:PR.index,total:PR.selected.length,member:{id:m.id,name:m.name,photo:m.photo||null}});
+    sendDraw({kind:'player',phase:'reveal',index:PR.index,total:PR.selected.length,member:{id:m.id,name:m.name,photo:memberPhoto(m)||null}});
     playRevealAnimation(m,PR.index,PR.selected.length,function(){
       PR.index++;
       const done=PR.index>=PR.selected.length;
@@ -7343,7 +7360,7 @@ initApp();
     document.getElementById('prCancelBtn').style.display='none';
 
     sendDraw({kind:'player',phase:'reveal',index:pos,total:PR.selected.length,replaceIndex:pos,
-      member:{id:m.id,name:m.name,photo:m.photo||null}});
+      member:{id:m.id,name:m.name,photo:memberPhoto(m)||null}});
     playRevealAnimation(m,pos,PR.selected.length,()=>v28FinishReplacement(pos,newMid),pos);
   }
 

@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>크루 대항 종합게임</title>
-<meta name="app-build" content="sync-recheck-v42-20261001">
+<meta name="app-build" content="sync-diag-v43-20261001">
 <meta name="description" content="크루 대항 종합게임 - 대진 룰렛, 종목 슬롯머신, 출전자 추첨, 실시간 전광판">
 <meta property="og:title" content="크루 대항 종합게임">
 <meta property="og:description" content="대진 룰렛 · 종목 슬롯머신 · 출전자 추첨 · 실시간 전광판">
@@ -3936,12 +3936,50 @@ async function loadRemoteState(opt){
     return false;
   }catch(error){
     console.error(error);
-    setSyncState(remoteRealtimeConnected?'서버 재확인 중':'서버 재연결 중','busy');
+    noteRemoteError(error,'불러오기');
+    if(isAuthProblem(error)){ recoverAuthIfNeeded(error); return false; }
+    setSyncState((remoteRealtimeConnected?'서버 재확인 중':'서버 재연결 중')+' · '+describeRemoteError(error),'busy');
     if(!remoteRealtimeConnected)scheduleRemoteRecovery();
     return false;
   }
 }
 const STATE_SIZE_WARN=200*1024; // 이보다 커지면 저장이 느려집니다.
+let lastRemoteError='';
+/* 실패 이유를 사람 말로 바꿔 화면에 그대로 보여줍니다. 원인을 추측하지 않기 위해서입니다. */
+function describeRemoteError(e){
+  if(!e)return '알 수 없는 오류';
+  const msg=String((e&&(e.message||e.error_description||e.error||e.hint))||e||'');
+  const code=String((e&&(e.code||e.status))||'');
+  if(/SAVE_TIMEOUT|SERVER_TIMEOUT/i.test(msg))return '서버 응답 없음';
+  if(/jwt|token|unauthorized|not authorized|invalid claim/i.test(msg)||code==='401'||code==='PGRST301')return '세션 만료';
+  if(/row-level security|violates .*policy|permission denied/i.test(msg)||code==='42501')return '권한 없음(RLS)';
+  if(/failed to fetch|networkerror|load failed|err_blocked|err_network/i.test(msg))return '요청 차단됨';
+  if(/too large|payload|413/i.test(msg)||code==='413')return '용량 초과';
+  if(/429|rate limit/i.test(msg)||code==='429')return '요청 과다';
+  return msg.slice(0,24)||'알 수 없는 오류';
+}
+function isAuthProblem(e){ return describeRemoteError(e)==='세션 만료'; }
+async function recoverAuthIfNeeded(e){
+  if(!sb||!currentUser||!isAuthProblem(e))return false;
+  try{
+    const {data,error}=await sb.auth.refreshSession();
+    if(error||!data||!data.session)throw error||new Error('세션 갱신 실패');
+    currentUser=data.session.user; updateAuthUI();
+    setSyncState('세션 재연결됨','busy'); toast('관리자 세션을 다시 연결했습니다.');
+    return true;
+  }catch(err){
+    console.error(err);
+    setSyncState('세션 만료 · 다시 로그인','err');
+    toast('관리자 세션이 만료되었습니다. 로그아웃 후 다시 로그인해 주세요.');
+    return false;
+  }
+}
+function noteRemoteError(e,where){
+  lastRemoteError=where+' 실패 · '+describeRemoteError(e);
+  const el=document.getElementById('syncState');
+  if(el)el.title=lastRemoteError+' (누르면 다시 시도합니다)';
+  console.warn('[동기화] '+lastRemoteError,e);
+}
 function clearRemoteSaveRetry(){
   if(remoteSaveRetryTimer){clearTimeout(remoteSaveRetryTimer);remoteSaveRetryTimer=null;}
 }
@@ -3994,8 +4032,11 @@ async function saveRemote(isRetry){
   }catch(error){
     console.error(error);
     remoteDirty=true;
-    setSyncState('저장 재시도 중','busy');
-    if(!isRetry)toast('서버 저장이 지연되어 자동 재시도합니다.');
+    noteRemoteError(error,'저장');
+    const reason=describeRemoteError(error);
+    if(isAuthProblem(error))recoverAuthIfNeeded(error);
+    else setSyncState('저장 재시도 중 · '+reason,'busy');
+    if(!isRetry)toast('서버 저장 실패 · '+reason+' · 자동 재시도합니다.');
     scheduleRemoteSaveRetry();
     if(!remoteRealtimeConnected)scheduleRemoteRecovery();
   }finally{

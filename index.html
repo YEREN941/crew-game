@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>크루 대항 종합게임</title>
-<meta name="app-build" content="auth-storm-fix-v47-20261001">
+<meta name="app-build" content="rate-limit-guard-v48-20261001">
 <meta name="description" content="크루 대항 종합게임 - 대진 룰렛, 종목 슬롯머신, 출전자 추첨, 실시간 전광판">
 <meta property="og:title" content="크루 대항 종합게임">
 <meta property="og:description" content="대진 룰렛 · 종목 슬롯머신 · 출전자 추첨 · 실시간 전광판">
@@ -4031,13 +4031,21 @@ async function downgradeToViewer(err){
 }
 /* 세션이 완전히 끊긴 경우. 조용히 실패하면 결과가 안 올라간 걸 모르니 눈에 띄게 알립니다. */
 function announceSessionExpired(err){
-  setSyncState('세션 만료 · 다시 로그인','err');
+  const rate=describeRemoteError(err)==='요청 과다';
+  setSyncState(rate?'요청 한도 · 잠시 후 로그인':'세션 만료 · 다시 로그인','err');
   if(sessionExpiredNotified)return;
   sessionExpiredNotified=true;
+  if(rate){
+    // 한도에 걸린 상태에서 로그인 창을 띄우면 더 두드리게 되고 차단이 길어집니다.
+    loginBlockedUntil=Date.now()+120000;
+    toast('Supabase 요청 한도에 걸렸습니다. 2분쯤 기다렸다가 로그인해 주세요. 그동안 화면은 관람 모드로 계속 갱신됩니다.');
+    return;
+  }
   const raw=String((err&&(err.message||err.error_description))||'').slice(0,80);
   toast('로그인이 풀려서 결과가 서버에 저장되지 않습니다. 다시 로그인해 주세요.'+(raw?' ('+raw+')':''));
   try{ const dlg=document.getElementById('authDialog'); if(dlg&&!dlg.open)dlg.showModal(); }catch(e){}
 }
+let loginBlockedUntil=0;
 function noteRemoteError(e,where){
   lastRemoteError=where+' 실패 · '+describeRemoteError(e);
   const el=document.getElementById('syncState');
@@ -4379,7 +4387,7 @@ async function loginAdmin(email,password){
   if(error)throw error;
   currentUser=data.user;
   sessionExpiredNotified=false;
-  authFailStreak=0; authCooldownUntil=0; authRefreshInFlight=null; lastRecheckAt=0;
+  authFailStreak=0; authCooldownUntil=0; authRefreshInFlight=null; lastRecheckAt=0; loginBlockedUntil=0;
   await resyncAuthRealtime();
   // 로그인이 풀린 동안 만든 결과가 남아 있으면 먼저 서버에 올리고, 없으면 서버 상태를 받아옵니다.
   if(remoteDirty){
@@ -6798,11 +6806,26 @@ document.getElementById('authForm').addEventListener('submit',async e=>{
   e.preventDefault();
   const email=document.getElementById('authEmail').value.trim();
   const password=document.getElementById('authPassword').value;
+  const waitMs=loginBlockedUntil-Date.now();
+  if(waitMs>0){
+    toast('요청 한도 해제까지 '+Math.ceil(waitMs/1000)+'초 남았습니다. 그때 한 번만 눌러주세요.');
+    return;
+  }
   try{
     setSyncState('로그인 중','busy'); await loginAdmin(email,password);
     document.getElementById('authPassword').value=''; document.getElementById('authDialog').close();
     toast('관리자 로그인 완료');
-  }catch(err){console.error(err);setSyncState('로그인 실패','err');toast('로그인 실패: '+err.message);}
+  }catch(err){
+    console.error(err);
+    if(describeRemoteError(err)==='요청 과다'){
+      loginBlockedUntil=Date.now()+120000;
+      setSyncState('요청 한도 · 잠시 후 로그인','err');
+      toast('Supabase 요청 한도에 걸렸습니다. 지금 다시 누르면 차단이 길어집니다. 2분쯤 기다렸다가 한 번만 눌러주세요.');
+    }else{
+      setSyncState('로그인 실패','err');
+      toast('로그인 실패: '+err.message);
+    }
+  }
 });
 
 document.getElementById('photoFile').addEventListener('change',e=>{

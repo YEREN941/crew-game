@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>크루 대항 종합게임</title>
-<meta name="app-build" content="sync-diag-v43-20261001">
+<meta name="app-build" content="auth-realtime-v44-20261001">
 <meta name="description" content="크루 대항 종합게임 - 대진 룰렛, 종목 슬롯머신, 출전자 추첨, 실시간 전광판">
 <meta property="og:title" content="크루 대항 종합게임">
 <meta property="og:description" content="대진 룰렛 · 종목 슬롯머신 · 출전자 추첨 · 실시간 전광판">
@@ -3937,7 +3937,11 @@ async function loadRemoteState(opt){
   }catch(error){
     console.error(error);
     noteRemoteError(error,'불러오기');
-    if(isAuthProblem(error)){ recoverAuthIfNeeded(error); return false; }
+    if(isAuthProblem(error)){
+      const fixed=await recoverAuthIfNeeded(error);
+      if(fixed&&!opt.__retried){ await resyncAuthRealtime(); return loadRemoteState(Object.assign({},opt,{__retried:true})); }
+      return false;
+    }
     setSyncState((remoteRealtimeConnected?'서버 재확인 중':'서버 재연결 중')+' · '+describeRemoteError(error),'busy');
     if(!remoteRealtimeConnected)scheduleRemoteRecovery();
     return false;
@@ -4108,6 +4112,25 @@ document.addEventListener('visibilitychange',function(){ if(!document.hidden)rec
 })();
 window.addEventListener('focus',function(){ recheckRemoteNow(); });
 window.addEventListener('online',function(){ remoteRecoveryAttempt=0; recheckRemoteNow(); });
+
+let lastAuthToken=null,authSyncing=false;
+/* 로그인·로그아웃·토큰 자동갱신이 일어나면 Realtime 연결이 들고 있는 권한이 낡습니다.
+   낡은 채널은 조용히 변경 알림을 못 받아서 화면이 서로 어긋납니다. 토큰이 바뀌면 다시 붙입니다. */
+async function resyncAuthRealtime(){
+  if(!sb||authSyncing)return false;
+  authSyncing=true;
+  try{
+    let token=null;
+    try{ const {data}=await sb.auth.getSession(); token=data&&data.session?data.session.access_token:null; }catch(e){ console.error(e); }
+    if(token===lastAuthToken)return false;
+    lastAuthToken=token;
+    try{ if(sb.realtime&&typeof sb.realtime.setAuth==='function'){ const r=sb.realtime.setAuth(token); if(r&&r.then)await r; } }catch(e){ console.error(e); }
+    if(remoteChannel){ try{ await sb.removeChannel(remoteChannel); }catch(e){} remoteChannel=null; }
+    remoteRealtimeConnected=false;
+    subscribeRemote();
+    return true;
+  }finally{ authSyncing=false; }
+}
 
 function subscribeRemote(){
   if(!sb||remoteChannel)return;
@@ -4280,6 +4303,7 @@ async function loginAdmin(email,password){
   const {data,error}=await sb.auth.signInWithPassword({email,password});
   if(error)throw error;
   currentUser=data.user;
+  await resyncAuthRealtime();
   const found=await loadRemoteState();
   if(!found)render(true);
   applyAccessMode();
@@ -4288,7 +4312,9 @@ async function logoutAdmin(){
   if(!sb)return;
   closeRoulette();
   const {error}=await sb.auth.signOut(); if(error)console.error(error);
-  currentUser=null; remoteDirty=false; clearRemoteSaveRetry(); crewEditMode=false; renderCrews(); applyAccessMode(); setSyncState(remoteRealtimeConnected?'동기화 정상':'서버 재연결 중',remoteRealtimeConnected?'ok':'busy');
+  currentUser=null; remoteDirty=false; clearRemoteSaveRetry(); crewEditMode=false; renderCrews(); applyAccessMode();
+  await resyncAuthRealtime(); await loadRemoteState({quiet:true,label:'동기화 정상'});
+  setSyncState(remoteRealtimeConnected?'동기화 정상':'서버 재연결 중',remoteRealtimeConnected?'ok':'busy');
 }
 
 /* ================= state ================= */
@@ -6798,11 +6824,17 @@ async function initApp(){
     applyAccessMode();
   }
 
+  lastAuthToken=null;
+  await resyncAuthRealtime();
   sb.auth.onAuthStateChange((_event,session)=>{
     currentUser=session&&session.user?session.user:null;
     if(!currentUser){closeRoulette();crewEditMode=false;}
     renderCrews();
     applyAccessMode();
+    // 토큰이 바뀌었으면 채널을 새 권한으로 다시 붙이고 그동안 놓친 변경을 받아옵니다.
+    resyncAuthRealtime().then(changed=>{
+      if(changed&&!remoteDirty)loadRemoteState({quiet:true,label:'동기화 정상'});
+    });
   });
 
   // 중요: 서버 데이터가 비어/손상된 경우 자동 upsert로 덮어쓰지 않습니다.

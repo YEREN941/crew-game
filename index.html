@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>크루 대항 종합게임</title>
-<meta name="app-build" content="slim-state-v41-20261001">
+<meta name="app-build" content="sync-recheck-v42-20261001">
 <meta name="description" content="크루 대항 종합게임 - 대진 룰렛, 종목 슬롯머신, 출전자 추첨, 실시간 전광판">
 <meta property="og:title" content="크루 대항 종합게임">
 <meta property="og:description" content="대진 룰렛 · 종목 슬롯머신 · 출전자 추첨 · 실시간 전광판">
@@ -515,7 +515,8 @@
   .toast.on{opacity:1;bottom:34px}
 
   /* Supabase 동기화 / 관리자 */
-  .syncpill{position:fixed;right:10px;bottom:10px;z-index:260;font-size:10px;line-height:1;padding:4px 7px;border-radius:999px;border:1px solid var(--line);color:var(--muted);background:rgba(16,22,32,.88);white-space:nowrap;pointer-events:none;opacity:.82;box-shadow:0 3px 14px rgba(0,0,0,.22);backdrop-filter:blur(6px)}
+  .syncpill{position:fixed;right:10px;bottom:10px;z-index:260;font-size:10px;line-height:1;padding:4px 7px;border-radius:999px;border:1px solid var(--line);color:var(--muted);background:rgba(16,22,32,.88);white-space:nowrap;cursor:pointer;user-select:none;opacity:.82;box-shadow:0 3px 14px rgba(0,0,0,.22);backdrop-filter:blur(6px)}
+  .syncpill:hover{opacity:1}
   .syncpill::before{content:'•';margin-right:4px;font-size:12px;vertical-align:-.5px}
   .syncpill.ok{color:#8ce8bd;border-color:#28543f;background:rgba(16,37,28,.9)}
   .syncpill.busy{color:#a9c3ff;border-color:#30456f;background:rgba(18,28,49,.9)}
@@ -3557,7 +3558,7 @@ input:focus,select:focus,textarea:focus{
       <span class="tag gold" id="ruleWin">3승 먼저한 크루가 우승</span>
       <span class="spacer"></span>
       <span class="live-pill" id="livePill"><span class="ld-dot"></span>LIVE 추첨 중</span>
-      <span class="syncpill" id="syncState">연결 준비</span>
+      <span class="syncpill" id="syncState" title="누르면 서버 상태를 지금 다시 불러옵니다">연결 준비</span>
       <button class="ghost sm noprint" data-act="loginBtn" id="adminLoginBtn">관리자 로그인</button>
       <button class="ghost sm noprint" data-act="logout" id="adminLogoutBtn" hidden>로그아웃</button>
       <button class="ghost sm noprint" data-act="print">인쇄</button>
@@ -3845,7 +3846,15 @@ function interactionBusy(){
     ||!!(pm&&pm.classList.contains('on'))
     ||!!(GR&&GR.spinning)
     ||!!(PR&&PR.spinning)
+    ||isTypingNow()
     ||Object.values(spinning||{}).some(Boolean);
+}
+/* 입력 중일 때 원격 변경을 덮어쓰면 글자가 날아갑니다. 입력이 끝날 때까지 미룹니다. */
+function isTypingNow(){
+  const el=document.activeElement;
+  if(!el)return false;
+  const t=(el.tagName||'').toUpperCase();
+  return t==='INPUT'||t==='TEXTAREA'||t==='SELECT'||el.isContentEditable===true;
 }
 function applyRemoteState(d,label){
   if(!validState(d))return;
@@ -4027,17 +4036,38 @@ function startRemoteHealthCheck(){
   remoteHealthTimer=setInterval(()=>{
     if(!sb)return;
     if(!remoteRealtimeConnected){scheduleRemoteRecovery();return;}
-    if(currentUser){
-      if(remoteDirty&&!remoteSaveInFlight&&!remoteSaveTimer)scheduleRemoteSaveRetry();
+    if(currentUser&&remoteDirty){
+      if(!remoteSaveInFlight&&!remoteSaveTimer)scheduleRemoteSaveRetry();
       return;
     }
-    // OBS/관람자는 Realtime 이벤트 유실에 대비해 서버의 updated_at을 가볍게 재확인합니다.
-    if(!interactionBusy()){
-      if(pendingRemoteState)flushPendingRemote();
-      if(!pendingRemoteState)loadRemoteState({quiet:true,onlyIfNewer:true,label:'동기화 정상'});
-    }
-  },15000);
+    // 관리자·관람자 모두 Realtime 이벤트 유실에 대비해 서버의 updated_at을 가볍게 재확인합니다.
+    recheckRemoteNow();
+  },10000);
 }
+/* 서버 상태를 지금 다시 확인합니다.
+   Realtime 이벤트는 탭이 백그라운드이거나 연결이 잠깐 끊긴 사이에 유실될 수 있어서,
+   창을 다시 켜거나 네트워크가 돌아올 때마다 서버를 한 번 더 봅니다. */
+function recheckRemoteNow(){
+  if(!sb)return;
+  if(interactionBusy()||remoteSaveInFlight||remoteSaveTimer||remoteDirty)return;
+  if(pendingRemoteState){ flushPendingRemote(); if(pendingRemoteState)return; }
+  loadRemoteState({quiet:true,onlyIfNewer:true,label:'동기화 정상'});
+}
+document.addEventListener('visibilitychange',function(){ if(!document.hidden)recheckRemoteNow(); });
+(function(){
+  const pill=document.getElementById('syncState');
+  if(!pill)return;
+  pill.addEventListener('click',function(){
+    if(!sb){toast('로컬 모드입니다.');return;}
+    if(remoteDirty){toast('저장되지 않은 변경이 있어 먼저 저장합니다.');scheduleRemoteSaveRetry();return;}
+    setSyncState('서버 확인 중','busy');
+    remoteLastSeenUpdatedAt=null;             // 강제로 다시 읽습니다.
+    loadRemoteState({label:'동기화 정상'}).then(function(ok){ if(ok)toast('서버 상태를 다시 불러왔습니다.'); });
+  });
+})();
+window.addEventListener('focus',function(){ recheckRemoteNow(); });
+window.addEventListener('online',function(){ remoteRecoveryAttempt=0; recheckRemoteNow(); });
+
 function subscribeRemote(){
   if(!sb||remoteChannel)return;
   remoteChannel=sb.channel('tournament-state-main',{config:{broadcast:{self:false,ack:false}}})
@@ -4066,6 +4096,8 @@ function subscribeRemote(){
         if(remoteRecoveryTimer){clearTimeout(remoteRecoveryTimer);remoteRecoveryTimer=null;}
         setSyncState(currentUser&&remoteDirty?'저장 재시도 중':'동기화 정상',currentUser&&remoteDirty?'busy':'ok');
         if(currentUser&&remoteDirty)scheduleRemoteSaveRetry();
+        // 끊겨 있던 동안의 변경은 큐에 남지 않으므로 붙자마자 서버를 다시 읽습니다.
+        else recheckRemoteNow();
       }else if(status==='CHANNEL_ERROR'||status==='TIMED_OUT'||status==='CLOSED'){
         remoteRealtimeConnected=false;
         setSyncState('서버 재연결 중','busy');

@@ -317,6 +317,52 @@ tfoot td:first-child{font:15px var(--f-display)}
 .res b{font:700 11px var(--f-body);background:var(--c);color:var(--ink,#111);padding:1px 5px}
 .res .p{color:var(--muted);font-variant-numeric:tabular-nums}
 
+/* ---------- 관리자 빠른 점수 (화면 아래 고정) ---------- */
+.dock{position:fixed;left:0;right:0;bottom:0;z-index:40;background:rgba(15,17,21,.96);border-top:2px solid var(--gold);padding-bottom:env(safe-area-inset-bottom,0px);box-shadow:0 -8px 24px rgba(0,0,0,.35)}
+.dock.min{left:auto;right:max(16px,env(safe-area-inset-right,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px));border:0;background:transparent;box-shadow:none;padding:0}
+.dock-pill{background:var(--gold);color:#221d05;border:0;padding:11px 18px;font:15px var(--f-display);box-shadow:0 4px 16px rgba(0,0,0,.45)}
+.dock-in{display:grid;gap:8px;padding-block:10px}
+.dock-top,.dock-row{display:flex;align-items:center;gap:8px 10px;flex-wrap:wrap}
+.dock .sp{flex:1}
+.dk-title{font:16px var(--f-display);font-weight:400;color:var(--gold)}
+.dk-ev{display:flex;gap:4px;align-items:center;min-width:0}
+.dk-ev select.inp{width:auto;max-width:260px;padding:6px 8px}
+.dbtn{border:1px solid var(--line);background:var(--panel-2);padding:6px 10px;font-size:13px;min-height:34px;white-space:nowrap}
+.dbtn:hover{border-color:var(--muted)}
+.dbtn.go{background:var(--gold);color:#221d05;border-color:var(--gold);font-weight:700}
+.dk-seg button{padding:6px 10px}
+.dk-crew{display:grid;grid-template-columns:auto minmax(0,1fr);grid-template-areas:"place name" "place pts";align-items:center;gap:0 10px;min-width:150px;padding:7px 12px;border:2px solid var(--c);background:var(--panel);text-align:left}
+.dk-crew:hover{background:var(--panel-2)}
+.dk-crew.on{background:var(--c);color:var(--ink)}
+.dk-place{grid-area:place;font:700 20px/1 var(--f-pixel);min-width:44px}
+.dk-crew .dk-name{grid-area:name;font:15px var(--f-display)}
+.dk-pts{grid-area:pts;font:700 12px var(--f-pixel);min-height:14px}
+.dk-hint{color:var(--muted);font-size:13px}
+.dk-num{display:inline-flex;align-items:center;gap:4px;padding:4px 6px;border:1px solid var(--line);border-left:4px solid var(--c);background:var(--panel)}
+.dk-num .dk-name{font-size:13px;margin-right:4px;font-weight:700}
+.dk-num button{border:1px solid var(--line);background:var(--panel-2);padding:3px 8px;font-size:12.5px}
+.dk-num button:hover{border-color:var(--muted)}
+.dk-num b{font:700 14px var(--f-pixel);min-width:40px;text-align:center}
+.dk-lbl{font-size:12.5px;color:var(--dim)}
+.dk-pts-set{display:inline-flex;align-items:center;gap:4px;flex-wrap:wrap}
+.dk-pts-set label{display:inline-flex;align-items:center;gap:3px;font-size:12px;color:var(--muted)}
+.dk-pts-set input{width:58px;padding:4px 6px;font:700 13px var(--f-pixel);background:var(--panel-2);border:1px solid var(--line);color:var(--fg);text-align:right}
+.dk-pts-set input:focus{outline:none;border-color:var(--gold)}
+.dk-pts-set .own{color:var(--gold);font-size:12px}
+.dock-st{font-size:12.5px;color:var(--muted)}
+.dock-st.bad{color:#ff9b9b}
+body.has-dock main{padding-bottom:250px}
+body.has-dock .toast{bottom:auto;top:calc(16px + env(safe-area-inset-top, 0px))}
+.dock:not(.min){max-height:62vh;overflow-y:auto}
+.ev .dbtn{margin-top:6px}
+@media (max-width: 640px){
+  .dk-crew{min-width:0;flex:1 1 40%}
+  .dk-ev select.inp{max-width:170px}
+  body.has-dock main{padding-bottom:64vh}
+  .dock-in{gap:6px;padding-block:8px}
+  .dk-crew{padding:5px 10px}
+}
+
 /* ---------- 관리 ---------- */
 .adm-bar{position:sticky;top:0;z-index:5;background:var(--bg);display:flex;gap:10px 14px;align-items:center;flex-wrap:wrap;padding-block:12px;border-bottom:1px solid var(--line);margin-bottom:18px}
 .adm-status{color:var(--muted);font-size:13px}
@@ -548,6 +594,7 @@ footer b{color:var(--muted);font-weight:500}
     <span>NOT AN OFFICIAL MINECRAFT EVENT. NOT APPROVED BY OR ASSOCIATED WITH MOJANG OR MICROSOFT.</span>
   </div>
 </footer>
+<div class="dock" id="dock" hidden></div>
 <div class="toast" id="toast" role="status" hidden></div>
 
 <script>
@@ -607,12 +654,13 @@ footer b{color:var(--muted);font-weight:500}
       return any ? o : null;
     }
     if (Array.isArray(ev.result) && ev.result.some(Boolean)) {
-      const table = C.points || [], mul = Number(ev.multiplier) || 1, o = {};
+      const table = tableOf(ev), mul = Number(ev.multiplier) || 1, o = {};
       ev.result.forEach((k, i) => { if (k && crewByKey[k] && !(k in o)) o[k] = (Number(table[i]) || 0) * mul; });
       return o;
     }
     return null;
   }
+  function tableOf(ev) { return (Array.isArray(ev.points) && ev.points.length ? ev.points : C.points) || []; }
   const statusOf = ev => ev.status || (eventPoints(ev) ? "done" : "upcoming");
 
   function computeScores() {
@@ -971,7 +1019,7 @@ footer b{color:var(--muted);font-weight:500}
   function renderSchedule() {
     $("#schedSub").textContent = `${C.date || ""}${C.date ? " · " : ""}총 ${C.events.length}개 순서`;
     const label = { done: "완료", live: "진행 중", upcoming: "예정" };
-    $("#sched").innerHTML = C.events.map(ev => {
+    $("#sched").innerHTML = C.events.map((ev, evi) => {
       const st = statusOf(ev), pts = eventPoints(ev);
       const pill = st === "live" ? `<span class="pill ko live"><span class="dot"></span>${label[st]}</span>` : `<span class="pill ko ${st === "done" ? "done" : "next"}">${label[st]}</span>`;
       let res = "";
@@ -984,7 +1032,7 @@ footer b{color:var(--muted);font-weight:500}
         <div><div class="ev-name">${esc(ev.name)}${mult}</div>
           ${ev.desc ? `<div class="ev-desc">${esc(ev.desc)}</div>` : ""}
           ${res ? `<div class="ev-res">${res}</div>` : ""}</div>
-        <div>${pill}</div>
+        <div style="display:grid;justify-items:end">${pill}${canEdit() ? `<button type="button" class="dbtn" data-dock="${evi}">점수 입력</button>` : ""}</div>
       </li>`;
     }).join("");
   }
@@ -999,7 +1047,7 @@ footer b{color:var(--muted);font-weight:500}
   const st = { authChecked: false, user: null, err: "", has: null, pending: false, ver: 0, savedAt: null, stamp: null, loginWait: 0 };
   const TABLE = () => SB.table || "tournament_state", ROW = () => SB.row || "undonghoe";
   const withTimeout = (p, ms = 10000) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error("서버 응답이 없어요 (시간 초과). 새로고침 후 다시 해 주세요.")), ms))]);
-  const setNav = () => { const a = $("#admNav"); if (a) a.textContent = st.user ? "관리" : "관리자 로그인"; };
+  const setNav = () => { const a = $("#admNav"); if (a) a.textContent = st.user ? "관리" : "관리자 로그인"; if (typeof renderDock === "function" && view) { renderDock(); renderSchedule(); } };
   function initSupabase() {
     if (!SB) { st.err = "Supabase 연결 정보가 없어요"; return; }
     if (!window.supabase || !window.supabase.createClient) { st.err = "Supabase 라이브러리를 불러오지 못했어요 (인터넷 연결 확인)"; return; }
@@ -1083,6 +1131,7 @@ footer b{color:var(--muted);font-weight:500}
   const canEdit = () => !!(sb && st.user);
 
   function renderAdmStatus() {
+    renderDockStatus();
     if (view !== "admin") return;
     let s = "";
     if (!sb) s = `<span class="bad">${esc(st.err)}</span>`;
@@ -1115,7 +1164,7 @@ footer b{color:var(--muted);font-weight:500}
       if (mode === "rank") {
         const r = ev.result || [];
         const dup = r.filter(Boolean).length !== new Set(r.filter(Boolean)).size;
-        scoreUI = `<div class="rank-sel">${C.crews.map((_, p) => `<label class="field"><span>${p + 1}위 (+${(Number((C.points || [])[p]) || 0) * (Number(ev.multiplier) || 1)})</span><select class="inp" data-ev="${i}" data-rank="${p}">${crewOpts(r[p])}</select></label>`).join("")}</div>
+        scoreUI = `<div class="rank-sel">${C.crews.map((_, p) => `<label class="field"><span>${p + 1}위 (+${(Number(tableOf(ev)[p]) || 0) * (Number(ev.multiplier) || 1)})</span><select class="inp" data-ev="${i}" data-rank="${p}">${crewOpts(r[p])}</select></label>`).join("")}</div>
           ${dup ? `<p class="warn">같은 크루가 두 번 선택됐어요.</p>` : ""}`;
       } else if (mode === "direct") {
         scoreUI = `<div class="rank-sel">${C.crews.map(c => `<label class="field"><span style="color:${c.color}">${esc(c.name)}</span><input class="inp" type="number" inputmode="numeric" data-ev="${i}" data-sc="${esc(c.key)}" value="${esc(ev.scores[c.key] ?? "")}" placeholder="0"></label>`).join("")}</div>`;
@@ -1223,7 +1272,7 @@ footer b{color:var(--muted);font-weight:500}
         ${f("host.id", "주최 SOOP 아이디", C.host.id)}
       </div>
       <div class="form-grid">
-        <label class="field"><span>순위 배점 (1위부터, 쉼표로 구분)</span><input class="inp" data-b="points" value="${esc((C.points || []).join(", "))}" placeholder="100, 70, 50, 30"></label>
+        <label class="field"><span>기본 순위 배점 (1위부터, 쉼표로 구분 · 종목별로 다르게 하려면 화면 아래 빠른 점수에서)</span><input class="inp" data-b="points" value="${esc((C.points || []).join(", "))}" placeholder="100, 70, 50, 30"></label>
         <label class="field"><span>크루당 최대 인원</span><input class="inp" type="number" min="1" max="30" data-b="maxMembers" value="${esc(MAXM())}"></label>
       </div>
       <label class="check"><input type="checkbox" data-b="sample"${C.sample ? " checked" : ""}> '예시 데이터예요' 안내 띠 보이기</label>
@@ -1450,6 +1499,150 @@ footer b{color:var(--muted);font-weight:500}
     commit(true);
   });
 
+  /* ---------- 관리자 빠른 점수 ---------- */
+  let dockEv = null, dockMin = store.get("dockMin", false);
+  const BONUS_TAG = "현장 조정";
+  function dockDefault() {
+    let i = C.events.findIndex(e => statusOf(e) === "live");
+    if (i < 0) i = C.events.findIndex(e => statusOf(e) === "upcoming");
+    return i < 0 ? C.events.length - 1 : i;
+  }
+  function renderDockStatus() {
+    const el = $("#dockSt"); if (!el) return;
+    el.className = "dock-st" + (st.err ? " bad" : "");
+    el.textContent = st.err ? st.err : st.pending ? "저장 중…" : st.savedAt ? "저장됨 · " + st.savedAt.toLocaleTimeString("ko-KR") : "누르면 바로 저장돼요";
+  }
+  let dockHold = false;
+  function renderDock() {
+    if (dockHold) return;
+    const d = $("#dock"), on = canEdit() && view !== "admin";
+    d.hidden = !on;
+    document.body.classList.toggle("has-dock", on && !dockMin);
+    if (!on) return;
+    d.classList.toggle("min", dockMin);
+    if (dockMin) { d.innerHTML = `<button type="button" class="dock-pill" data-d="max">빠른 점수 ▲</button>`; return; }
+    if (!C.events.length) {
+      d.innerHTML = `<div class="wrap dock-in"><div class="dock-top"><b class="dk-title">빠른 점수</b><span class="dk-hint">종목이 없어요. 관리 화면에서 종목을 추가해 주세요.</span><span class="sp"></span><button type="button" class="dbtn" data-d="min">접기 ▼</button></div></div>`;
+      return;
+    }
+    if (dockEv == null || dockEv >= C.events.length) dockEv = dockDefault();
+    const ev = C.events[dockEv], s = statusOf(ev), mode = ev.scores ? "direct" : "rank";
+    const pts = eventPoints(ev) || {}, mul = Number(ev.multiplier) || 1;
+    const cs = c => `--c:${c.color};--ink:${ink(c.color)}`;
+    let row;
+    if (mode === "rank") {
+      const r = (ev.result || []).filter(Boolean);
+      row = C.crews.map(c => {
+        const k = r.indexOf(c.key);
+        return `<button type="button" class="dk-crew${k >= 0 ? " on" : ""}" data-d="rank" data-k="${esc(c.key)}" style="${cs(c)}">
+          <span class="dk-place">${k >= 0 ? U(k + 1, "위") : "·"}</span><span class="dk-name">${esc(c.name)}</span><span class="dk-pts">${k >= 0 ? "+" + pts[c.key] : ""}</span></button>`;
+      }).join("") + `<span class="dk-hint">${r.length < C.crews.length ? `<b>${r.length + 1}위</b> 크루를 누르세요 · 다시 누르면 빠져요` : "순위 입력 완료"}</span>`;
+    } else {
+      row = C.crews.map(c => {
+        const v = Number(ev.scores[c.key]) || 0;
+        return `<span class="dk-num" style="${cs(c)}"><span class="dk-name">${esc(c.name)}</span>
+          <button type="button" data-d="sc" data-k="${esc(c.key)}" data-n="-10">−10</button><button type="button" data-d="sc" data-k="${esc(c.key)}" data-n="-1">−1</button>
+          <b>${v}</b>
+          <button type="button" data-d="sc" data-k="${esc(c.key)}" data-n="1">+1</button><button type="button" data-d="sc" data-k="${esc(c.key)}" data-n="10">+10</button></span>`;
+      }).join("");
+    }
+    const adj = c => (C.bonus || []).filter(b => b.crew === c.key && b.reason === BONUS_TAG).reduce((a, b) => a + (Number(b.points) || 0), 0);
+    const hasNext = C.events.some((o, j) => j > dockEv && statusOf(o) !== "done");
+    d.innerHTML = `<div class="wrap dock-in">
+      <div class="dock-top">
+        <b class="dk-title">빠른 점수</b>
+        <div class="dk-ev">
+          <button type="button" class="dbtn" data-d="prev" ${dockEv === 0 ? "disabled" : ""} aria-label="이전 종목">‹</button>
+          <select class="inp" id="dockSel" aria-label="종목 선택">${C.events.map((e, i) => `<option value="${i}"${i === dockEv ? " selected" : ""}>${esc(e.time ? e.time + " " : "")}${esc(e.name)}</option>`).join("")}</select>
+          <button type="button" class="dbtn" data-d="next" ${dockEv === C.events.length - 1 ? "disabled" : ""} aria-label="다음 종목">›</button>
+        </div>
+        <div class="seg dk-seg" role="group" aria-label="상태">${[["upcoming", "예정"], ["live", "진행 중"], ["done", "완료"]].map(([v, l]) => `<button type="button" data-d="status" data-v="${v}" aria-pressed="${s === v}">${l}</button>`).join("")}</div>
+        <div class="seg dk-seg" role="group" aria-label="점수 방식">${[["rank", "순위로"], ["direct", "점수 직접"]].map(([v, l]) => `<button type="button" data-d="mode" data-v="${v}" aria-pressed="${mode === v}">${l}</button>`).join("")}</div>
+        ${mode === "rank" && mul > 1 ? `<span class="ev-mult">점수 ×${mul}</span>` : ""}
+        <span class="sp"></span>
+        <span class="dock-st" id="dockSt"></span>
+        <button type="button" class="dbtn" data-d="min">접기 ▼</button>
+      </div>
+      <div class="dock-row">${row}
+        <span class="sp"></span>
+        <button type="button" class="dbtn" data-d="clear">이 종목 점수 지우기</button>
+        ${hasNext ? `<button type="button" class="dbtn go" data-d="advance">완료하고 다음 종목 시작 →</button>` : ""}
+      </div>
+      ${mode === "rank" ? `<div class="dock-row"><span class="dk-lbl">이 종목 배점</span>
+        <span class="dk-pts-set">${C.crews.map((_, i) => `<label>${i + 1}위<input type="number" inputmode="numeric" data-pt="${i}" value="${esc(tableOf(ev)[i] ?? 0)}" aria-label="${i + 1}위 배점"></label>`).join("")}</span>
+        <div class="seg dk-seg" role="group" aria-label="점수 배수">${[1, 1.5, 2, 3].map(m => `<button type="button" data-d="mul" data-v="${m}" aria-pressed="${mul === m}">×${m}</button>`).join("")}</div>
+        ${Array.isArray(ev.points) && ev.points.length ? `<span class="own">이 종목만 따로 정한 배점</span><button type="button" class="dbtn" data-d="pts-reset">기본 배점으로</button><button type="button" class="dbtn" data-d="pts-all">모든 종목 기본값으로 저장</button>` : `<span class="dk-lbl">기본 배점 사용 중 · 바꾸면 이 종목에만 적용돼요</span>`}
+      </div>` : ""}
+      <div class="dock-row"><span class="dk-lbl">보너스·감점</span>${C.crews.map(c => { const v = adj(c); return `<span class="dk-num" style="${cs(c)}"><span class="dk-name">${esc(c.name)}</span>
+        <button type="button" data-d="adj" data-k="${esc(c.key)}" data-n="-10">−10</button><b>${v > 0 ? "+" : ""}${v}</b><button type="button" data-d="adj" data-k="${esc(c.key)}" data-n="10">+10</button></span>`; }).join("")}</div>
+    </div>`;
+    renderDockStatus();
+  }
+  $("#dock").addEventListener("click", e => {
+    const b = e.target.closest("[data-d]"); if (!b || !canEdit()) return;
+    const a = b.dataset.d, k = b.dataset.k, n = Number(b.dataset.n), ev = C.events[dockEv];
+    switch (a) {
+      case "min": dockMin = true; store.set("dockMin", true); renderDock(); return;
+      case "max": dockMin = false; store.set("dockMin", false); renderDock(); return;
+      case "prev": dockEv = Math.max(0, dockEv - 1); renderDock(); return;
+      case "next": dockEv = Math.min(C.events.length - 1, dockEv + 1); renderDock(); return;
+      case "status": {
+        const v = b.dataset.v;
+        if (v === "live") C.events.forEach((o, j) => { if (j !== dockEv && o.status === "live") delete o.status; });
+        ev.status = v; break;
+      }
+      case "mode":
+        if (b.dataset.v === "direct" && !ev.scores) { const p = eventPoints(ev) || {}; delete ev.result; delete ev.multiplier; ev.scores = { ...p }; }
+        else if (b.dataset.v === "rank" && ev.scores) { delete ev.scores; ev.result = C.crews.map(() => ""); }
+        else return;
+        break;
+      case "rank": {
+        const r = (ev.result || []).filter(Boolean), i = r.indexOf(k);
+        if (i >= 0) r.splice(i, 1); else r.push(k);
+        ev.result = C.crews.map((_, j) => r[j] || "");
+        break;
+      }
+      case "sc": ev.scores = ev.scores || {}; ev.scores[k] = (Number(ev.scores[k]) || 0) + n; break;
+      case "mul": { const m = Number(b.dataset.v); if (m === 1) delete ev.multiplier; else ev.multiplier = m; break; }
+      case "pts-reset": delete ev.points; break;
+      case "pts-all": C.points = ev.points.slice(); C.events.forEach(o => { if (o.points && same(o.points, C.points)) delete o.points; }); toast("기본 배점을 바꿨어요. 따로 정하지 않은 모든 종목에 적용돼요."); break;
+      case "clear": delete ev.result; delete ev.scores; if (ev.status === "done") delete ev.status; break;
+      case "adj": {
+        C.bonus = C.bonus || [];
+        let bo = C.bonus.find(x => x.crew === k && x.reason === BONUS_TAG);
+        if (!bo) { bo = { crew: k, points: 0, reason: BONUS_TAG }; C.bonus.push(bo); }
+        bo.points = (Number(bo.points) || 0) + n;
+        if (!bo.points) C.bonus.splice(C.bonus.indexOf(bo), 1);
+        break;
+      }
+      case "advance": {
+        ev.status = "done";
+        const nx = C.events.findIndex((o, j) => j > dockEv && statusOf(o) !== "done");
+        C.events.forEach((o, j) => { if (j !== nx && o.status === "live") delete o.status; });
+        if (nx >= 0) { C.events[nx].status = "live"; dockEv = nx; toast(`'${C.events[nx].name}' 시작!`); }
+        break;
+      }
+      default: return;
+    }
+    commit(false);
+  });
+  $("#dock").addEventListener("change", e => { if (e.target.id === "dockSel") { dockEv = +e.target.value; renderDock(); } });
+  // 배점 입력: 입력하는 동안에는 칸을 다시 그리지 않아 커서가 유지돼요
+  $("#dock").addEventListener("input", e => {
+    const el = e.target; if (el.dataset.pt == null || !canEdit()) return;
+    const ev = C.events[dockEv]; if (!ev) return;
+    const t = tableOf(ev).slice(); while (t.length < C.crews.length) t.push(0);
+    t[+el.dataset.pt] = Number(el.value) || 0;
+    ev.points = same(t.slice(0, (C.points || []).length), C.points) && t.length <= (C.points || []).length ? undefined : t;
+    if (!ev.points) delete ev.points;
+    dockHold = true; commit(false); dockHold = false;
+  });
+  $("#dock").addEventListener("focusout", e => { if (e.target.dataset.pt != null) setTimeout(() => { if (!$("#dock").contains(document.activeElement) || document.activeElement.dataset.pt == null) renderDock(); }, 0); });
+  $("#sched").addEventListener("click", e => {
+    const b = e.target.closest("[data-dock]"); if (!b) return;
+    dockEv = +b.dataset.dock; dockMin = false; store.set("dockMin", false); renderDock();
+  });
+
   /* ---------- 전체화면 · 단축키 ---------- */
   function toggleFull(el) {
     try {
@@ -1490,7 +1683,7 @@ footer b{color:var(--muted);font-weight:500}
     if (!current || !byId(current)) current = C.host.id;
     renderHeader(); renderTicker(); renderPresets(); renderPicker();
     renderScore(); renderSchedule();
-    renderCrewPick(); renderMembers(); renderHome();
+    renderCrewPick(); renderMembers(); renderHome(); renderDock();
     if (view === "viewer") { mountPlayer(); renderInfo(); }
     renderMulti();
   }

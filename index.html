@@ -9,10 +9,11 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;500;700&family=Silkscreen:wght@400;700&display=swap">
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.3/dist/umd/supabase.js" crossorigin="anonymous"></script>
 <script id="config">
 // ★ 대회 설정 ★
-// 주소 끝에 #admin 을 붙이면 관리 화면이 열려요. 거기서 고치고 [새 index.html 저장]을 누르면 이 부분이 자동으로 바뀐 파일이 저장돼요.
-// 직접 고쳐도 됩니다. id = SOOP 방송국 아이디 (sooplive.com/station/<여기>)
+// 실제 대회 데이터는 Supabase에 저장돼요. 이 값은 서버에 아무것도 없을 때만 쓰는 기본값이에요.
+// 수정은 주소 끝에 #admin 을 붙여 관리자 로그인 후 하세요. id = SOOP 방송국 아이디 (sooplive.com/station/<여기>)
 const CONFIG = {
   "sample": true,
   "title": "마크 대운동회",
@@ -65,8 +66,14 @@ const CONFIG = {
   ],
   "bonus": []
 };
-// 실시간 저장(Firebase) 연결 정보. 관리 화면 > 저장·백업 에서 붙여 넣으면 자동으로 채워져요.
-const SYNC = { "firebase": null, "path": "undonghoe" };
+// 실시간 저장(Supabase) 연결 정보. 관리자 로그인과 저장에 써요.
+// publishable 키는 공개용이라 파일에 있어도 괜찮아요. 쓰기 권한은 Supabase 규칙(RLS)이 막아요.
+const SYNC = {
+  "url": "https://maxoketndgrohcaqapep.supabase.co",
+  "key": "sb_publishable_PUWutKHrO3mTFGTyJQfv1A_RxHZ3MR-",
+  "table": "tournament_state",
+  "row": "undonghoe"
+};
 </script>
 
 <style>
@@ -430,7 +437,7 @@ footer b{color:var(--muted);font-weight:500}
 <div class="grass" aria-hidden="true"></div>
 
 <div class="band sample" id="sampleBar" hidden>
-  <div class="wrap"><span>지금은 <b>예시 데이터</b>예요. 주소 끝에 <code>#admin</code>을 붙이면 관리 화면에서 실제 명단·종목·점수를 넣을 수 있어요.</span><span class="sp"></span><a href="#admin">관리 화면 열기</a></div>
+  <div class="wrap"><span>지금은 <b>예시 데이터</b>예요. 주소 끝에 <code>#admin</code>을 붙여 관리자로 로그인하면 실제 명단·종목·점수를 넣을 수 있어요.</span><span class="sp"></span><a href="#admin">관리 화면 열기</a></div>
 </div>
 <div class="band draft" id="draftBar" hidden>
   <div class="wrap"><span id="draftText"></span><span class="sp"></span><button type="button" class="go" data-g="save">새 index.html 저장</button><a href="#admin">관리 화면</a></div>
@@ -521,7 +528,7 @@ footer b{color:var(--muted);font-weight:500}
         <button type="button" data-tab="events">종목·점수</button>
         <button type="button" data-tab="crews">크루·멤버</button>
         <button type="button" data-tab="bonus">보너스·감점</button>
-        <button type="button" data-tab="basic">기본 정보</button>
+        <button type="button" data-tab="basic">홈·기본 정보</button>
         <button type="button" data-tab="backup">저장·백업</button>
       </div>
       <span class="adm-status" id="admStatus"></span>
@@ -544,7 +551,7 @@ footer b{color:var(--muted);font-weight:500}
   // 파일 원본 (저장할 때 설정 부분만 바꿔서 내려받음)
   const SOURCE = "<!doctype html>\n" + document.documentElement.outerHTML;
   const FILE_CONFIG = JSON.parse(JSON.stringify(CONFIG));
-  const SYNC_FILE = JSON.parse(JSON.stringify((typeof SYNC !== "undefined" && SYNC) || { firebase: null, path: "undonghoe" }));
+  const SB = (typeof SYNC !== "undefined" && SYNC && SYNC.url && SYNC.key) ? SYNC : null;
 
   const $ = (s, r = document) => r.querySelector(s);
   const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -567,9 +574,7 @@ footer b{color:var(--muted);font-weight:500}
   };
   const U = (n, unit) => `${n}<span class="u">${unit}</span>`;
 
-  /* ---------- 설정: 파일 / 관리자 초안 / 실시간 저장 ---------- */
-  let SY = store.get("syncDraft", null) || clone(SYNC_FILE);
-  const syncOn = () => !!(SY.firebase && SY.firebase.databaseURL);
+  /* ---------- 설정: 서버(Supabase) → 없으면 이 브라우저에 남은 초안 → 파일 기본값 ---------- */
   let C = store.get("draft", null);
   if (!C || !C.crews || same(C, FILE_CONFIG)) { store.del("draft"); C = clone(FILE_CONFIG); }
   const MAXM = () => Number(C.maxMembers) || 10;
@@ -677,13 +682,8 @@ footer b{color:var(--muted);font-weight:500}
     $("#footTitle").textContent = `${C.hostedBy || ""} ${C.title || ""}`.trim();
     $("#footHost").textContent = C.host.name;
     document.title = `${C.host.name}의 ${C.title}`;
-    const cfgDraft = !syncOn() && !same(C, FILE_CONFIG);
-    const syDraft = !same(SY, SYNC_FILE);
-    $("#draftText").innerHTML = syDraft
-      ? `<b>실시간 저장 연결 정보가 아직 이 브라우저에만 있어요.</b> 새 index.html을 저장해 사이트에 <b>한 번만</b> 올려 주세요. 그다음부터는 파일을 다시 올릴 필요가 없어요.`
-      : `<b>관리 중인 내용이 이 브라우저에만 보이고 있어요.</b> 모두에게 보이려면 새 파일을 저장해 사이트에 다시 올려 주세요.`;
-    $("#draftBar").hidden = !(cfgDraft || syDraft) || view === "admin";
-    $("#sampleBar").hidden = !C.sample || cfgDraft || syDraft || view === "admin";
+    $("#draftBar").hidden = true;
+    $("#sampleBar").hidden = !C.sample || view === "admin";
   }
 
   function renderTicker() {
@@ -788,7 +788,7 @@ footer b{color:var(--muted);font-weight:500}
     box.dataset.key = key;
     box.innerHTML = !t ? "" : `<div class="teaser-box">${t.type === "video"
       ? `<video src="${esc(t.src)}" controls playsinline preload="metadata"></video>`
-      : `<iframe src="${esc(t.src)}" title="티저 영상" allow="autoplay; fullscreen; encrypted-media; picture-in-picture" allowfullscreen></iframe>`}</div>`;
+      : `<iframe src="${esc(t.src)}" title="티저 영상" allow="autoplay; fullscreen; encrypted-media; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>`}</div>`;
   }
   function renderHome() {
     renderTeaser();
@@ -986,87 +986,80 @@ footer b{color:var(--muted);font-weight:500}
   }
 
   /* =====================================================================
-     실시간 저장 (Firebase Realtime Database)
-     - 관리자: Firebase SDK로 로그인해서 저장
-     - 시청자: 15초마다 버전 번호만 확인하고 바뀌었을 때만 새 내용을 받음
-       (SDK 상시 연결을 쓰지 않아 무료 플랜 동시접속 100명 제한에 걸리지 않음)
+     실시간 저장 (Supabase)
+     - 관리자: 이메일/비밀번호로 로그인해야 수정·저장 가능 (쓰기는 RLS가 authenticated만 허용)
+     - 시청자: 15초마다 updated_at만 확인하고 바뀌었을 때만 전체 내용을 받음
+       (실시간 채널을 상시 열지 않아 무료 플랜 동시접속 제한·요청 폭주를 피함)
      ===================================================================== */
-  const FB_VER = "10.12.2";
-  const fb = { loading: false, ready: false, user: null, err: "", has: null, pending: false, savedAt: null, ver: null };
-  const fbBase = () => SY.firebase.databaseURL.replace(/\/+$/, "") + "/" + (SY.path || "undonghoe");
-  function loadScript(src) {
-    return new Promise((res, rej) => { const s = document.createElement("script"); s.src = src; s.onload = res; s.onerror = () => rej(new Error("스크립트를 불러오지 못했어요")); document.head.appendChild(s); });
+  let sb = null;
+  const st = { authChecked: false, user: null, err: "", has: null, pending: false, ver: 0, savedAt: null, stamp: null, loginWait: 0 };
+  const TABLE = () => SB.table || "tournament_state", ROW = () => SB.row || "undonghoe";
+  function initSupabase() {
+    if (!SB) { st.err = "Supabase 연결 정보가 없어요"; return; }
+    if (!window.supabase || !window.supabase.createClient) { st.err = "Supabase 라이브러리를 불러오지 못했어요 (인터넷 연결 확인)"; return; }
+    sb = window.supabase.createClient(SB.url, SB.key);
+    sb.auth.getSession().then(({ data }) => {
+      st.user = data?.session?.user || null; st.authChecked = true; renderAdmin();
+    }, () => { st.authChecked = true; renderAdmin(); });
+    sb.auth.onAuthStateChange((_ev, session) => {
+      const u = session?.user || null;
+      const changed = (u?.id || null) !== (st.user?.id || null);
+      st.user = u; st.authChecked = true;
+      if (changed) { renderAdmin(); if (u) pull(false).catch(() => {}); }
+    });
   }
-  function applyRemote(str) {
-    let obj; try { obj = typeof str === "string" ? JSON.parse(str) : null; } catch { return; }
+  function applyRemote(obj, stamp) {
     if (!obj || !obj.crews) return;
-    fb.has = true;
+    st.has = true; st.stamp = stamp || st.stamp;
     store.del("draft");
-    if (fb.pending || same(obj, C)) return;
+    if (st.pending || same(obj, C)) { renderAdmStatus(); return; }
     C = obj; renderSite();
     if (view === "admin" && !$("#admBody").contains(document.activeElement)) renderAdmin(); else renderAdmStatus();
   }
-  // 시청자용 가벼운 확인
-  function startPolling() {
-    if (!syncOn()) return;
-    const full = () => fetch(fbBase() + ".json", { cache: "no-store" }).then(r => r.json()).then(j => {
-      if (j && j.error) throw new Error(j.error);
-      if (j && j.config) { fb.ver = j.ver ?? null; applyRemote(j.config); } else fb.has = false;
-    });
-    const tick = () => {
-      if (document.hidden || fb.user) return;
-      fetch(fbBase() + "/ver.json", { cache: "no-store" }).then(r => r.json()).then(v => { if (v !== fb.ver) return full(); }).catch(() => {});
-    };
-    full().catch(e => { fb.err = "실시간 저장소를 읽지 못했어요 (" + e.message + ")"; renderAdmStatus(); });
-    setInterval(tick, 15000);
-    document.addEventListener("visibilitychange", () => { if (!document.hidden) tick(); });
-  }
-  // 관리자용 SDK
-  async function startAdminSync() {
-    if (!syncOn() || fb.loading || fb.ready) return;
-    fb.loading = true; renderAdmin();
-    try {
-      if (!window.firebase) {
-        const base = `https://www.gstatic.com/firebasejs/${FB_VER}/`;
-        await loadScript(base + "firebase-app-compat.js");
-        await Promise.all([loadScript(base + "firebase-auth-compat.js"), loadScript(base + "firebase-database-compat.js")]);
-      }
-      if (!firebase.apps.length) firebase.initializeApp(SY.firebase);
-      fb.auth = firebase.auth(); fb.ref = firebase.database().ref(SY.path || "undonghoe");
-      fb.ready = true; fb.loading = false;
-      fb.auth.onAuthStateChanged(u => {
-        fb.user = u || null;
-        if (u && !fb.listening) {
-          fb.listening = true;
-          fb.ref.on("value", snap => {
-            const v = snap.val();
-            if (v && v.config) { fb.ver = v.ver; applyRemote(v.config); } else { fb.has = false; renderAdmStatus(); }
-          }, err => { fb.err = "읽기 실패: " + err.message; renderAdmStatus(); });
-        }
-        renderAdmin();
-      });
-    } catch (e) {
-      fb.loading = false; fb.err = "실시간 저장에 연결하지 못했어요 (" + e.message + ")"; renderAdmin();
+  async function pull(onlyIfNewer) {
+    if (!sb) return;
+    if (onlyIfNewer && st.stamp) {
+      const { data, error } = await sb.from(TABLE()).select("updated_at").eq("id", ROW()).maybeSingle();
+      if (error) throw error;
+      if (data && data.updated_at === st.stamp) return;
     }
+    const { data, error } = await sb.from(TABLE()).select("data,updated_at").eq("id", ROW()).maybeSingle();
+    if (error) throw error;
+    if (data && data.data && data.data.crews) applyRemote(data.data, data.updated_at);
+    else { st.has = false; renderAdmStatus(); }
   }
+  function startPolling() {
+    if (!sb) return;
+    pull(false).then(() => { st.err = ""; }, e => { st.err = "불러오기 실패: " + (e.message || e); renderAdmStatus(); });
+    setInterval(() => { if (!document.hidden && !st.pending) pull(true).catch(() => {}); }, 15000);
+    document.addEventListener("visibilitychange", () => { if (!document.hidden && !st.pending) pull(true).catch(() => {}); });
+  }
+  const saveErr = e => {
+    const m = String(e?.message || e?.code || e);
+    if (e?.code === "42501" || /row-level security|permission/i.test(m)) return "저장 권한이 없어요. supabase-security.sql 2번(쓰기 규칙)이 적용됐는지 확인해 주세요.";
+    if (/jwt|expired|401/i.test(m)) return "로그인이 만료됐어요. 로그아웃 후 다시 로그인해 주세요.";
+    if (/429|rate/i.test(m)) return "요청이 너무 많아요. 잠시 후 자동으로 다시 저장해요.";
+    return "저장 실패: " + m;
+  };
   function pushRemote(now) {
-    if (!fb.ready || !fb.user) return;
-    fb.pending = true; clearTimeout(fb.t);
-    fb.t = setTimeout(() => {
-      fb.ref.update({ config: JSON.stringify(C), ver: firebase.database.ServerValue.TIMESTAMP }).then(() => {
-        fb.pending = false; fb.has = true; fb.err = ""; fb.savedAt = new Date(); renderAdmStatus();
-      }, e => {
-        fb.pending = false;
-        fb.err = /permission/i.test(e.code || e.message) ? "저장 실패: 이 계정에는 저장 권한이 없어요 (규칙의 UID 확인)" : "저장 실패: " + e.message;
-        renderAdmStatus();
-      });
-    }, now ? 0 : 500);
+    if (!sb || !st.user) return;
+    st.pending = true; const v = ++st.ver; clearTimeout(st.t);
+    st.t = setTimeout(async () => {
+      const updated_at = new Date().toISOString();
+      try {
+        const { error } = await sb.from(TABLE()).upsert({ id: ROW(), data: clone(C), updated_at }, { onConflict: "id" });
+        if (error) throw error;
+        st.err = ""; st.has = true; st.stamp = updated_at; st.savedAt = new Date();
+        store.del("draft");
+        if (v === st.ver) st.pending = false;
+      } catch (e) {
+        st.err = saveErr(e);
+        if (/429|rate/i.test(String(e?.message))) { setTimeout(() => { if (v === st.ver) pushRemote(true); }, 5000); }
+        else if (v === st.ver) { st.pending = false; store.set("draft", C); }
+      }
+      renderAdmStatus();
+    }, now ? 0 : 600);
     renderAdmStatus();
-  }
-  function parseFirebaseConfig(text) {
-    const o = {};
-    text.replace(/["']?([A-Za-z]+)["']?\s*:\s*["']([^"']*)["']/g, (_, k, v) => { o[k] = v; });
-    return o;
   }
 
   /* =====================================================================
@@ -1076,27 +1069,23 @@ footer b{color:var(--muted);font-weight:500}
   let admCrew = 0;
   const modeOf = ev => ev.scores ? "direct" : Array.isArray(ev.result) ? "rank" : "none";
   const crewOpts = (sel, blank = "— 선택 —") => `<option value="">${blank}</option>` + C.crews.map(c => `<option value="${esc(c.key)}"${c.key === sel ? " selected" : ""}>${esc(c.name)}</option>`).join("");
-  const canEdit = () => !syncOn() || !!fb.user;
+  const canEdit = () => !!(sb && st.user);
 
   function renderAdmStatus() {
     if (view !== "admin") return;
     let s = "";
-    if (syncOn()) {
-      if (fb.err) s = `<span class="bad">${esc(fb.err)}</span>`;
-      else if (!fb.user) s = fb.loading ? "연결 중…" : "실시간 저장 · 로그인이 필요해요";
-      else if (fb.pending) s = `<b>저장 중…</b>`;
-      else if (fb.has === false) s = `<b>저장소가 비어 있어요.</b> 지금 내용을 올리면 모든 시청자에게 반영돼요.`;
-      else s = `<span class="sync-dot">실시간 저장 중${fb.savedAt ? " · " + fb.savedAt.toLocaleTimeString("ko-KR") + " 저장됨" : ""} · 시청자 화면은 15초 안에 바뀌어요</span>`;
-    } else {
-      s = !same(C, FILE_CONFIG) ? `<b>저장 안 된 변경 있음</b> · 이 브라우저에 자동 보관 중` : `파일 내용과 같아요`;
-    }
+    if (!sb) s = `<span class="bad">${esc(st.err)}</span>`;
+    else if (!st.user) s = st.authChecked ? "관리자 로그인이 필요해요" : "로그인 상태 확인 중…";
+    else if (st.err) s = `<span class="bad">${esc(st.err)}</span>`;
+    else if (st.pending) s = `<b>저장 중…</b>`;
+    else if (st.has === false) s = `<b>서버에 아직 대회 데이터가 없어요.</b> 지금 내용을 올리면 모든 시청자에게 반영돼요.`;
+    else s = `<span class="sync-dot">자동 저장 중${st.savedAt ? " · " + st.savedAt.toLocaleTimeString("ko-KR") + " 저장됨" : ""} · 시청자 화면은 15초 안에 바뀌어요</span>`;
     $("#admStatus").innerHTML = s;
     const right = [];
-    if (syncOn() && fb.user) {
-      if (fb.has === false) right.push(`<button type="button" class="btn primary" data-g="push">지금 내용 올리기</button>`);
-      right.push(`<button type="button" class="btn" data-g="logout">로그아웃</button>`);
+    if (st.user) {
+      if (st.has === false) right.push(`<button type="button" class="btn primary" data-g="push">지금 내용 올리기</button>`);
+      right.push(`<span class="preview" style="align-self:center">${esc(st.user.email || "")}</span><button type="button" class="btn" data-g="logout">로그아웃</button>`);
     }
-    if (!syncOn() || !same(SY, SYNC_FILE)) right.push(`<button type="button" class="btn primary" data-g="save">새 index.html 저장</button>`);
     $("#admRight").innerHTML = right.join("");
   }
 
@@ -1207,7 +1196,13 @@ footer b{color:var(--muted);font-weight:500}
 
   function admBasic() {
     const f = (k, label, v, ph = "") => `<label class="field"><span>${label}</span><input class="inp" data-b="${k}" value="${esc(v)}" placeholder="${esc(ph)}"></label>`;
+    const t = teaserSrc(C.teaser);
     return `<div class="adm-sec">
+      <div class="card" style="margin:0">
+        <h3>홈 티저 영상</h3>
+        <label class="field"><span>유튜브 주소를 붙여 넣으면 홈 맨 위에 영상이 나와요. 비워 두면 숨겨요. (youtube.com/watch?v=…, youtu.be/…, 쇼츠 주소 모두 돼요)</span><input class="inp" data-b="teaser" value="${esc(C.teaser)}" placeholder="https://youtu.be/..." autocapitalize="off" spellcheck="false"></label>
+        <p class="${C.teaser && !t ? "warn" : "preview"}" id="teaserCheck" style="margin-top:8px">${!C.teaser ? "지금은 티저가 없어요." : t ? "인식했어요 · 홈에서 확인해 보세요." : "주소를 인식하지 못했어요. 유튜브 주소인지 확인해 주세요."}</p>
+      </div>
       <div class="form-grid">
         ${f("hostedBy", "제목 윗줄", C.hostedBy, "진드기가 여는")}
         ${f("title", "행사 제목", C.title)}
@@ -1216,7 +1211,6 @@ footer b{color:var(--muted);font-weight:500}
         ${f("host.name", "주최 이름", C.host.name)}
         ${f("host.id", "주최 SOOP 아이디", C.host.id)}
       </div>
-      <label class="field"><span>티저 영상 링크 (유튜브 또는 SOOP 다시보기 주소 · 비워 두면 홈에서 숨겨요)</span><input class="inp" data-b="teaser" value="${esc(C.teaser)}" placeholder="https://youtu.be/..." autocapitalize="off" spellcheck="false"></label>
       <div class="form-grid">
         <label class="field"><span>순위 배점 (1위부터, 쉼표로 구분)</span><input class="inp" data-b="points" value="${esc((C.points || []).join(", "))}" placeholder="100, 70, 50, 30"></label>
         <label class="field"><span>크루당 최대 인원</span><input class="inp" type="number" min="1" max="30" data-b="maxMembers" value="${esc(MAXM())}"></label>
@@ -1225,44 +1219,11 @@ footer b{color:var(--muted);font-weight:500}
     </div>`;
   }
 
-  function syncCard() {
-    const on = syncOn();
-    const pid = on ? (SY.firebase.projectId || SY.firebase.databaseURL) : "";
-    return `<div class="card" style="margin:0">
-      <h3>실시간 저장 ${on ? `<span class="sync-dot" style="margin-left:8px">연결됨 · ${esc(pid)}</span>` : `<span class="preview" style="display:inline;margin-left:8px">꺼져 있음</span>`}</h3>
-      <p class="preview" style="margin:0 0 12px">켜 두면 관리 화면에서 고치는 즉시 저장되고, 모든 시청자 화면이 15초 안에 바뀌어요. 파일을 다시 올릴 필요가 없어요. 무료 Google Firebase 계정이 필요해요.</p>
-      ${on ? `<button type="button" class="btn danger" data-a="fb-off">연결 해제</button>` : `
-      <details class="bulk"><summary>설정 방법 (처음 한 번, 10분 정도)</summary>
-        <ol class="steps">
-          <li><code>console.firebase.google.com</code> 에서 프로젝트를 만들어요 (애널리틱스는 꺼도 돼요).</li>
-          <li>왼쪽 메뉴 <b>빌드 → Realtime Database → 데이터베이스 만들기</b>. 위치는 싱가포르, <b>잠금 모드</b>로 시작.</li>
-          <li><b>빌드 → Authentication → 시작하기 → 이메일/비밀번호</b>를 켜고, <b>사용자 추가</b>로 관리자 계정을 만들어요. 만든 계정의 <b>사용자 UID</b>를 복사해 두세요.</li>
-          <li>Realtime Database의 <b>규칙</b> 탭에 아래 내용을 붙여 넣고 UID 자리를 바꾼 뒤 게시해요. 여러 명이 관리하면 같은 계정을 같이 쓰면 돼요.</li>
-        </ol>
-        <pre class="rules">{
-  "rules": {
-    "${esc(SY.path || "undonghoe")}": {
-      ".read": true,
-      ".write": "auth != null && auth.uid === '여기에_UID'"
-    }
-  }
-}</pre>
-        <ol class="steps" start="5">
-          <li><b>프로젝트 설정(톱니바퀴) → 내 앱 → 웹(&lt;/&gt;)</b>으로 앱을 등록하면 <code>firebaseConfig</code>가 나와요. 그 내용을 아래 칸에 통째로 붙여 넣으세요. <code>databaseURL</code> 줄이 없으면 Realtime Database 화면 맨 위 주소를 <code>databaseURL: "https://..."</code> 형태로 직접 추가해요.</li>
-          <li><b>연결</b>을 누르고 로그인해서 <b>지금 내용 올리기</b> → <b>새 index.html 저장</b> → 사이트에 한 번만 다시 올리면 끝.</li>
-        </ol>
-      </details>
-      <textarea class="inp" id="fbIn" style="margin-top:10px" placeholder='const firebaseConfig = {&#10;  apiKey: "...",&#10;  authDomain: "...",&#10;  databaseURL: "https://....firebasedatabase.app",&#10;  projectId: "...",&#10;  ...&#10;};'></textarea>
-      <div style="margin-top:8px"><button type="button" class="btn primary" data-a="fb-set">연결</button></div>`}
-    </div>`;
-  }
-
   function admBackup() {
     return `<div class="adm-sec">
-      ${syncCard()}
       <div class="card" style="margin:0">
-        <h3>파일로 저장</h3>
-        <p class="preview" style="margin:0 0 10px">지금 내용이 들어간 index.html을 받아요. ${syncOn() ? "실시간 저장을 쓰는 중에도 백업용으로 받아 둘 수 있어요." : "사이트에 올린 파일을 이걸로 바꾸면 모두에게 반영돼요."}</p>
+        <h3>파일로 백업</h3>
+        <p class="preview" style="margin:0 0 10px">지금 내용이 기본값으로 들어간 index.html을 받아요. 서버에 저장된 내용은 그대로라, 올리지 않아도 돼요. 혹시 모를 때를 위한 백업용이에요.</p>
         <button type="button" class="btn" data-g="save">새 index.html 저장</button>
       </div>
       <div class="card" style="margin:0">
@@ -1273,39 +1234,31 @@ footer b{color:var(--muted);font-weight:500}
       </div>
       <div class="card" style="margin:0">
         <h3>설정 불러오기</h3>
-        <p class="preview" style="margin:0 0 10px">받은 설정을 붙여 넣고 불러오면 지금 내용이 바뀌어요.</p>
+        <p class="preview" style="margin:0 0 10px">받은 설정을 붙여 넣고 불러오면 지금 내용이 바뀌고 바로 서버에 저장돼요.</p>
         <textarea class="inp" id="bkIn" placeholder='{ "title": ... }'></textarea>
         <div style="margin-top:8px"><button type="button" class="btn" data-a="bk-load">불러오기</button></div>
       </div>
-      ${syncOn() ? "" : `<div class="card" style="margin:0">
-        <h3>되돌리기</h3>
-        <p class="preview" style="margin:0 0 10px">이 브라우저에서 고친 내용을 모두 버리고, 지금 올라가 있는 파일 내용으로 돌아가요.</p>
-        <button type="button" class="btn danger" data-a="discard">고친 내용 버리기</button>
-      </div>`}
     </div>`;
   }
 
   function admLogin() {
-    if (fb.loading) return `<p class="preview">실시간 저장소에 연결하는 중…</p>`;
-    if (!fb.ready) return `<div class="adm-sec"><p class="warn">${esc(fb.err || "실시간 저장소에 연결하지 못했어요.")}</p>${syncCard()}</div>`;
+    if (!sb) return `<p class="warn">${esc(st.err)}</p>`;
+    if (!st.authChecked) return `<p class="preview">로그인 상태를 확인하는 중…</p>`;
     return `<div class="adm-sec">
       <form class="card login" id="loginForm" style="margin:0">
         <h3 style="margin:0">관리자 로그인</h3>
-        <p class="preview">Firebase에서 만든 관리자 계정으로 로그인하세요.</p>
+        <p class="preview">Supabase Authentication에 등록된 관리자 이메일과 비밀번호로 로그인하세요. 로그인한 사람만 명단·종목·점수를 고칠 수 있어요.</p>
         <label class="field"><span>이메일</span><input class="inp" id="lgEmail" type="email" autocomplete="username" required></label>
         <label class="field"><span>비밀번호</span><input class="inp" id="lgPw" type="password" autocomplete="current-password" required></label>
         <p class="warn" id="lgErr" hidden></p>
-        <div><button type="submit" class="btn primary">로그인</button></div>
+        <div><button type="submit" class="btn primary" id="lgBtn">로그인</button></div>
       </form>
-      <details class="bulk"><summary>실시간 저장 설정 보기</summary>${syncCard()}</details>
     </div>`;
   }
 
   function renderAdmin() {
     if (view !== "admin") return;
-    $("#admIntro").innerHTML = syncOn()
-      ? "실시간 저장을 쓰고 있어요. 로그인한 뒤 고치면 바로 저장되고, 모든 시청자 화면에 15초 안에 반영돼요."
-      : "여기서 고친 내용은 이 브라우저에 자동 저장되고 바로 화면에 반영돼요. 다른 사람에게도 보이게 하려면 <b>새 index.html 저장</b>으로 받은 파일을 사이트에 다시 올리거나, <b>저장·백업</b> 탭에서 실시간 저장을 켜 주세요.";
+    $("#admIntro").innerHTML = "관리자로 로그인한 뒤 고치면 바로 서버에 저장되고, 모든 시청자 화면에 15초 안에 반영돼요. 파일을 다시 올릴 필요가 없어요.";
     if (!canEdit()) {
       $("#admTabs").hidden = true;
       $("#admBody").innerHTML = admLogin();
@@ -1323,8 +1276,8 @@ footer b{color:var(--muted);font-weight:500}
   });
 
   function commit(structural) {
-    if (syncOn()) pushRemote();
-    else if (same(C, FILE_CONFIG)) store.del("draft"); else store.set("draft", C);
+    if (!canEdit()) return;
+    pushRemote();
     renderSite();
     structural ? renderAdmin() : renderAdmStatus();
   }
@@ -1374,21 +1327,35 @@ footer b{color:var(--muted);font-weight:500}
   const body = $("#admBody");
   body.addEventListener("input", e => {
     const el = e.target;
-    if (!isBound(el) || el.tagName === "SELECT" || el.type === "checkbox" || el.type === "color") return;
+    if (!canEdit() || !isBound(el) || el.tagName === "SELECT" || el.type === "checkbox" || el.type === "color") return;
     applyInput(el); commit(false);
+    if (el.dataset.b === "teaser") { const t = teaserSrc(C.teaser), p = $("#teaserCheck"); if (p) { p.className = C.teaser && !t ? "warn" : "preview"; p.textContent = !C.teaser ? "지금은 티저가 없어요." : t ? "인식했어요 · 홈에서 확인해 보세요." : "주소를 인식하지 못했어요. 유튜브 주소인지 확인해 주세요."; } }
   });
   body.addEventListener("change", e => {
     const el = e.target;
-    if (isBound(el) && (el.tagName === "SELECT" || el.type === "checkbox" || el.type === "color")) { applyInput(el); commit(true); }
+    if (canEdit() && isBound(el) && (el.tagName === "SELECT" || el.type === "checkbox" || el.type === "color")) { applyInput(el); commit(true); }
   });
-  body.addEventListener("submit", e => {
+  body.addEventListener("submit", async e => {
     if (e.target.id !== "loginForm") return;
     e.preventDefault();
-    const err = $("#lgErr"); err.hidden = true;
-    fb.auth.signInWithEmailAndPassword($("#lgEmail").value.trim(), $("#lgPw").value).catch(x => {
+    const err = $("#lgErr"), btn = $("#lgBtn"); err.hidden = true;
+    if (Date.now() < st.loginWait) { err.hidden = false; err.textContent = "잠시 후 다시 시도해 주세요."; return; }
+    btn.disabled = true; btn.textContent = "로그인 중…";
+    try {
+      const { data, error } = await sb.auth.signInWithPassword({ email: $("#lgEmail").value.trim(), password: $("#lgPw").value });
+      if (error) throw error;
+      st.user = data.user; st.err = "";
+      await pull(false).catch(() => {});
+      renderAdmin();
+    } catch (x) {
+      const m = String(x?.message || x);
+      if (/rate|429/i.test(m)) st.loginWait = Date.now() + 30000;
+      if (btn.isConnected) { btn.disabled = false; btn.textContent = "로그인"; }
       err.hidden = false;
-      err.textContent = /invalid|wrong-password|user-not-found/i.test(x.code || "") ? "이메일이나 비밀번호가 맞지 않아요." : "로그인하지 못했어요: " + (x.message || x.code);
-    });
+      err.textContent = /invalid login|credentials/i.test(m) ? "이메일이나 비밀번호가 맞지 않아요."
+        : /confirm/i.test(m) ? "이메일 인증이 안 된 계정이에요. Supabase에서 확인해 주세요."
+        : /rate|429/i.test(m) ? "시도가 너무 많아요. 30초 뒤에 다시 해 주세요." : "로그인하지 못했어요: " + m;
+    }
   });
 
   function parseBulk(text) {
@@ -1407,25 +1374,24 @@ footer b{color:var(--muted);font-weight:500}
     const doc = new DOMParser().parseFromString(SOURCE, "text/html");
     const j = o => JSON.stringify(o, null, 2).replace(/</g, "\\u003c");
     doc.getElementById("config").textContent =
-      "\n// ★ 대회 설정 ★\n// 주소 끝에 #admin 을 붙이면 관리 화면이 열려요. 거기서 고치고 [새 index.html 저장]을 누르면 이 부분이 자동으로 바뀐 파일이 저장돼요.\n// 직접 고쳐도 됩니다. id = SOOP 방송국 아이디 (sooplive.com/station/<여기>)\nconst CONFIG = " + j(C) +
-      ";\n// 실시간 저장(Firebase) 연결 정보. 관리 화면 > 저장·백업 에서 붙여 넣으면 자동으로 채워져요.\nconst SYNC = " + j(SY) + ";\n";
+      "\n// ★ 대회 설정 ★\n// 실제 대회 데이터는 Supabase에 저장돼요. 이 값은 서버에 아무것도 없을 때만 쓰는 기본값이에요.\n// 수정은 주소 끝에 #admin 을 붙여 관리자 로그인 후 하세요. id = SOOP 방송국 아이디 (sooplive.com/station/<여기>)\nconst CONFIG = " + j(C) +
+      ";\n// 실시간 저장(Supabase) 연결 정보. 관리자 로그인과 저장에 써요.\n// publishable 키는 공개용이라 파일에 있어도 괜찮아요. 쓰기 권한은 Supabase 규칙(RLS)이 막아요.\nconst SYNC = " + j(SB) + ";\n";
     const html = "<!doctype html>\n" + doc.documentElement.outerHTML;
     try {
       const url = URL.createObjectURL(new Blob([html], { type: "text/html;charset=utf-8" }));
       const a = document.createElement("a"); a.href = url; a.download = "index.html";
       document.body.appendChild(a); a.click(); a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 5000);
-      toast("index.html을 저장했어요. 사이트에 올린 파일을 이걸로 바꿔 주세요.");
+      toast("백업용 index.html을 저장했어요.");
     } catch { toast("저장하지 못했어요. 저장·백업 탭에서 설정을 복사해 두세요."); }
   }
   document.addEventListener("click", e => {
     const g = e.target.closest("[data-g]")?.dataset.g;
     if (g === "save") saveFile();
     if (g === "push") pushRemote(true);
-    if (g === "logout" && fb.auth) fb.auth.signOut();
+    if (g === "logout" && sb) sb.auth.signOut().then(() => { st.user = null; renderAdmin(); });
   });
 
-  let discardArmed = false;
   body.addEventListener("click", e => {
     const b = e.target.closest("[data-a]"); if (!b) return;
     const a = b.dataset.a, i = +b.dataset.i;
@@ -1464,25 +1430,10 @@ footer b{color:var(--muted);font-weight:500}
           const txt = $("#bkIn").value.trim().replace(/^[^{]*/, "").replace(/;?\s*$/, "");
           const obj = JSON.parse(txt);
           if (!obj.crews || !obj.events || !obj.host) throw 0;
-          C = obj; admCrew = 0; toast("불러왔어요.");
+          C = obj; admCrew = 0; toast("불러왔어요. 서버에 저장할게요.");
         } catch { toast("설정 형식이 아니에요. 내보내기에서 복사한 내용을 그대로 붙여 넣어 주세요."); return; }
         break;
       }
-      case "discard":
-        if (!discardArmed) { discardArmed = true; b.textContent = "한 번 더 누르면 버려요"; setTimeout(() => { discardArmed = false; if (b.isConnected) b.textContent = "고친 내용 버리기"; }, 4000); return; }
-        discardArmed = false; C = clone(FILE_CONFIG); admCrew = 0; toast("파일 내용으로 되돌렸어요."); break;
-      case "fb-set": {
-        const cfg = parseFirebaseConfig($("#fbIn").value);
-        if (!cfg.apiKey || !cfg.databaseURL) { toast(!cfg.apiKey ? "apiKey가 없어요. firebaseConfig를 통째로 붙여 넣어 주세요." : "databaseURL이 없어요. Realtime Database 주소를 추가해 주세요."); return; }
-        SY = { firebase: cfg, path: SY.path || "undonghoe" };
-        if (same(SY, SYNC_FILE)) store.del("syncDraft"); else store.set("syncDraft", SY);
-        location.reload(); return;
-      }
-      case "fb-off":
-        if (!discardArmed) { discardArmed = true; b.textContent = "한 번 더 누르면 해제돼요"; setTimeout(() => { discardArmed = false; if (b.isConnected) b.textContent = "연결 해제"; }, 4000); return; }
-        SY = { firebase: null, path: SY.path || "undonghoe" };
-        if (same(SY, SYNC_FILE)) store.del("syncDraft"); else store.set("syncDraft", SY);
-        location.reload(); return;
       default: return;
     }
     commit(true);
@@ -1539,11 +1490,11 @@ footer b{color:var(--muted);font-weight:500}
     $$(".tab").forEach(t => { if (t.dataset.view === view) t.setAttribute("aria-current", "page"); else t.removeAttribute("aria-current"); });
     if (view !== "viewer") unmountPlayer();
     renderSite();
-    if (view === "admin" && syncOn()) startAdminSync();
     renderAdmin();
     window.scrollTo({ top: 0 });
   }
   window.addEventListener("hashchange", route);
+  initSupabase();
   route();
   startPolling();
 })();

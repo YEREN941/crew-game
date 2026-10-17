@@ -118,6 +118,7 @@ a{color:inherit}
   background:#6e6e6e;box-shadow:inset 0 0 0 2px #000, inset 2px 2px 0 2px #a8a8a8, inset -2px -2px 0 2px #4b4b4b;text-shadow:2px 2px 0 #3a3a3a}
 .tab:hover{background:#7d86c4;box-shadow:inset 0 0 0 2px #000, inset 2px 2px 0 2px #b2baf2, inset -2px -2px 0 2px #535c9b}
 .tab[aria-current="page"]{background:#4a4f5c;color:var(--gold);box-shadow:inset 0 0 0 2px #000, inset 2px 2px 0 2px #2c2f37, inset -2px -2px 0 2px #6a7080}
+.tab-adm{color:var(--gold)}
 .grass{height:36px;background-image:var(--grass);background-size:36px 36px;background-repeat:repeat-x;image-rendering:pixelated;border-bottom:3px solid #2b1e14}
 
 /* ---------- 안내 띠 ---------- */
@@ -240,17 +241,18 @@ kbd{font:11px var(--f-pixel);padding:2px 5px;background:rgba(0,0,0,.25);box-shad
 .mv-grid{display:grid;gap:8px;background:var(--bg)}
 .mv-grid.l2{grid-template-columns:1fr 1fr}
 .mv-grid.l3{grid-template-columns:2fr 1fr}
-.mv-grid.l3 .slot:first-child{grid-row:1 / 3;aspect-ratio:auto}
+.mv-grid.l3 .slot:first-child{grid-row:1 / 3}
+.mv-grid.l3 .slot:first-child .slot-vid{aspect-ratio:auto;flex:1;min-height:120px}
 .mv-grid.l4{grid-template-columns:1fr 1fr}
-.slot{position:relative;aspect-ratio:16/9;max-width:100%;background:#0b0c0f;border:2px solid var(--line);min-width:0;overflow:hidden}
+.slot{display:flex;flex-direction:column;max-width:100%;background:#0b0c0f;border:2px solid var(--line);min-width:0}
+.slot-vid{position:relative;aspect-ratio:16/9;width:100%;background:#000}
 .slot.on{border-color:var(--gold)}
-.slot-bar{position:absolute;left:0;right:0;bottom:0;display:flex;align-items:center;gap:8px;padding:5px 6px 5px 10px;background:rgba(12,13,16,.86);font-size:13px;transform:translateY(100%);transition:transform .15s}
-.slot:hover .slot-bar,.slot.on .slot-bar,.slot:focus-within .slot-bar{transform:none}
+.slot-bar{display:flex;align-items:center;gap:8px;padding:5px 6px 5px 6px;background:var(--panel);border-top:1px solid var(--line);font-size:13px;min-height:36px}
 .slot-bar .sw{width:9px;height:9px;background:var(--c)}
 .slot-bar .nm{flex:1;min-width:0;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .slot-bar button{border:0;background:rgba(255,255,255,.08);padding:4px 8px;font-size:12px}
 .slot-bar button:hover{background:rgba(255,255,255,.18)}
-.slot-num{position:absolute;left:8px;top:8px;font:700 11px var(--f-pixel);background:rgba(0,0,0,.6);padding:3px 6px;z-index:1;pointer-events:none}
+.slot-num{font:700 11px var(--f-pixel);background:var(--panel-2);padding:3px 6px;flex:none}
 .slot.on .slot-num{background:var(--gold);color:#221d05}
 .slot-empty{position:absolute;inset:0;display:grid;place-content:center;text-align:center;gap:6px;border:0;background:repeating-linear-gradient(45deg,transparent 0 10px,rgba(255,255,255,.02) 10px 20px);color:var(--muted);width:100%;padding:8px}
 .slot-empty b{font:18px var(--f-display);color:var(--fg)}
@@ -267,7 +269,7 @@ kbd{font:11px var(--f-pixel);padding:2px 5px;background:rgba(0,0,0,.25);box-shad
 .chip.in{border-color:var(--c,var(--gold));box-shadow:inset 0 0 0 1px var(--c,var(--gold))}
 .chip .n{font:700 10px var(--f-pixel);background:var(--gold);color:#221d05;padding:1px 4px}
 .mv-grid:fullscreen{background:#000;padding:6px;grid-auto-rows:1fr;height:100vh;align-content:stretch}
-.mv-grid:fullscreen .slot{aspect-ratio:auto}
+.mv-grid:fullscreen .slot-vid{aspect-ratio:auto;flex:1;min-height:0}
 .player:fullscreen{border:0}
 
 /* ---------- 점수판 ---------- */
@@ -393,7 +395,8 @@ footer b{color:var(--muted);font-weight:500}
   .pc{flex-direction:column;gap:8px}
   .mem-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
   .mv-grid.l2,.mv-grid.l3,.mv-grid.l4{grid-template-columns:minmax(0,1fr)}
-  .mv-grid.l3 .slot:first-child{grid-row:auto;aspect-ratio:16/9}
+  .mv-grid.l3 .slot:first-child{grid-row:auto}
+  .mv-grid.l3 .slot:first-child .slot-vid{aspect-ratio:16/9;flex:none;min-height:0}
   .ranks{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px}
   .rc-pts{font-size:30px}
   .ev{grid-template-columns:minmax(0,1fr) auto}
@@ -431,13 +434,14 @@ footer b{color:var(--muted);font-weight:500}
       <a class="tab" href="#multi" data-view="multi">멀티뷰</a>
       <a class="tab" href="#score" data-view="score">점수판</a>
       <a class="tab" href="#schedule" data-view="schedule">종목·일정</a>
+      <a class="tab tab-adm" href="#admin" data-view="admin" id="admNav">관리자 로그인</a>
     </nav>
   </div>
 </div>
 <div class="grass" aria-hidden="true"></div>
 
 <div class="band sample" id="sampleBar" hidden>
-  <div class="wrap"><span>지금은 <b>예시 데이터</b>예요. 주소 끝에 <code>#admin</code>을 붙여 관리자로 로그인하면 실제 명단·종목·점수를 넣을 수 있어요.</span><span class="sp"></span><a href="#admin">관리 화면 열기</a></div>
+  <div class="wrap"><span>지금은 <b>예시 데이터</b>예요. 위쪽 <b>관리자 로그인</b> 버튼으로 로그인하면 실제 명단·종목·점수를 넣을 수 있어요.</span><span class="sp"></span><a href="#admin">관리자 로그인</a></div>
 </div>
 <div class="band draft" id="draftBar" hidden>
   <div class="wrap"><span id="draftText"></span><span class="sp"></span><button type="button" class="go" data-g="save">새 index.html 저장</button><a href="#admin">관리 화면</a></div>
@@ -744,7 +748,7 @@ footer b{color:var(--muted);font-weight:500}
     const box = $("#player");
     if (box.dataset.id === current && box.firstChild) return;
     box.dataset.id = current;
-    box.innerHTML = `<iframe src="${embedUrl(current)}" title="${esc(byId(current).name)} 방송" allow="autoplay; fullscreen; clipboard-write" allowfullscreen></iframe>`;
+    box.innerHTML = `<iframe src="${embedUrl(current)}" title="${esc(byId(current).name)} 방송" allow="autoplay; fullscreen; clipboard-write; encrypted-media; picture-in-picture; local-network-access; local-network; loopback-network" allowfullscreen></iframe>`;
   }
   function unmountPlayer() { const box = $("#player"); box.innerHTML = ""; box.dataset.id = ""; }
 
@@ -838,14 +842,14 @@ footer b{color:var(--muted);font-weight:500}
     if (id) {
       const p = byId(id);
       el.style.setProperty("--c", colorOf(p));
-      el.innerHTML = `<span class="slot-num">${i + 1}</span>
-        <iframe src="${embedUrl(id)}" title="${esc(p.name)} 방송" allow="autoplay; fullscreen; clipboard-write" allowfullscreen></iframe>
-        <div class="slot-bar"><i class="sw"></i><span class="nm">${esc(p.name)}</span>
+      el.innerHTML = `<div class="slot-vid"><iframe src="${embedUrl(id)}" title="${esc(p.name)} 방송" allow="autoplay; fullscreen; clipboard-write; encrypted-media; picture-in-picture; local-network-access; local-network; loopback-network" allowfullscreen></iframe></div>
+        <div class="slot-bar"><span class="slot-num">${i + 1}</span><i class="sw"></i><span class="nm">${esc(p.name)}</span>
           <button type="button" data-act="pick">이 슬롯 선택</button>
           <button type="button" data-act="main">크게 보기</button>
           <button type="button" data-act="x" aria-label="빼기">✕</button></div>`;
     } else {
-      el.innerHTML = `<span class="slot-num">${i + 1}</span><button type="button" class="slot-empty" data-act="pick"><b>빈 슬롯</b><span>눌러서 선택한 뒤 아래에서 방송을 고르세요</span></button>`;
+      el.innerHTML = `<div class="slot-vid"><button type="button" class="slot-empty" data-act="pick"><b>빈 슬롯</b><span>눌러서 선택한 뒤 아래에서 방송을 고르세요</span></button></div>
+        <div class="slot-bar"><span class="slot-num">${i + 1}</span><span class="nm" style="color:var(--dim);font-weight:500">비어 있음</span></div>`;
     }
   }
   function renderMulti() {
@@ -994,18 +998,23 @@ footer b{color:var(--muted);font-weight:500}
   let sb = null;
   const st = { authChecked: false, user: null, err: "", has: null, pending: false, ver: 0, savedAt: null, stamp: null, loginWait: 0 };
   const TABLE = () => SB.table || "tournament_state", ROW = () => SB.row || "undonghoe";
+  const withTimeout = (p, ms = 10000) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error("서버 응답이 없어요 (시간 초과). 새로고침 후 다시 해 주세요.")), ms))]);
+  const setNav = () => { const a = $("#admNav"); if (a) a.textContent = st.user ? "관리" : "관리자 로그인"; };
   function initSupabase() {
     if (!SB) { st.err = "Supabase 연결 정보가 없어요"; return; }
     if (!window.supabase || !window.supabase.createClient) { st.err = "Supabase 라이브러리를 불러오지 못했어요 (인터넷 연결 확인)"; return; }
     sb = window.supabase.createClient(SB.url, SB.key);
     sb.auth.getSession().then(({ data }) => {
-      st.user = data?.session?.user || null; st.authChecked = true; renderAdmin();
+      st.user = data?.session?.user || null; st.authChecked = true; setNav(); renderAdmin();
     }, () => { st.authChecked = true; renderAdmin(); });
+    // 주의: 이 콜백 안에서 바로 Supabase를 부르면 인증 잠금 때문에 이후 요청이 전부 멈춰요. 반드시 setTimeout으로 미룸.
     sb.auth.onAuthStateChange((_ev, session) => {
-      const u = session?.user || null;
-      const changed = (u?.id || null) !== (st.user?.id || null);
-      st.user = u; st.authChecked = true;
-      if (changed) { renderAdmin(); if (u) pull(false).catch(() => {}); }
+      setTimeout(() => {
+        const u = session?.user || null;
+        const changed = (u?.id || null) !== (st.user?.id || null);
+        st.user = u; st.authChecked = true; setNav();
+        if (changed) { renderAdmin(); if (u) pull(false).catch(e => { st.err = "불러오기 실패: " + (e.message || e); renderAdmStatus(); }); }
+      }, 0);
     });
   }
   function applyRemote(obj, stamp) {
@@ -1019,11 +1028,11 @@ footer b{color:var(--muted);font-weight:500}
   async function pull(onlyIfNewer) {
     if (!sb) return;
     if (onlyIfNewer && st.stamp) {
-      const { data, error } = await sb.from(TABLE()).select("updated_at").eq("id", ROW()).maybeSingle();
+      const { data, error } = await withTimeout(sb.from(TABLE()).select("updated_at").eq("id", ROW()).maybeSingle());
       if (error) throw error;
       if (data && data.updated_at === st.stamp) return;
     }
-    const { data, error } = await sb.from(TABLE()).select("data,updated_at").eq("id", ROW()).maybeSingle();
+    const { data, error } = await withTimeout(sb.from(TABLE()).select("data,updated_at").eq("id", ROW()).maybeSingle());
     if (error) throw error;
     if (data && data.data && data.data.crews) applyRemote(data.data, data.updated_at);
     else { st.has = false; renderAdmStatus(); }
@@ -1042,18 +1051,20 @@ footer b{color:var(--muted);font-weight:500}
     return "저장 실패: " + m;
   };
   function pushRemote(now) {
-    if (!sb || !st.user) return;
+    if (!sb || !st.user) { if (now) toast("관리자 로그인이 필요해요."); return; }
     st.pending = true; const v = ++st.ver; clearTimeout(st.t);
     st.t = setTimeout(async () => {
       const updated_at = new Date().toISOString();
       try {
-        const { error } = await sb.from(TABLE()).upsert({ id: ROW(), data: clone(C), updated_at }, { onConflict: "id" });
+        const { error } = await withTimeout(sb.from(TABLE()).upsert({ id: ROW(), data: clone(C), updated_at }, { onConflict: "id" }));
         if (error) throw error;
         st.err = ""; st.has = true; st.stamp = updated_at; st.savedAt = new Date();
+        if (now) toast("서버에 올렸어요. 이제 모든 시청자에게 보여요.");
         store.del("draft");
         if (v === st.ver) st.pending = false;
       } catch (e) {
         st.err = saveErr(e);
+        if (now) toast(st.err);
         if (/429|rate/i.test(String(e?.message))) { setTimeout(() => { if (v === st.ver) pushRemote(true); }, 5000); }
         else if (v === st.ver) { st.pending = false; store.set("draft", C); }
       }
@@ -1077,7 +1088,7 @@ footer b{color:var(--muted);font-weight:500}
     if (!sb) s = `<span class="bad">${esc(st.err)}</span>`;
     else if (!st.user) s = st.authChecked ? "관리자 로그인이 필요해요" : "로그인 상태 확인 중…";
     else if (st.err) s = `<span class="bad">${esc(st.err)}</span>`;
-    else if (st.pending) s = `<b>저장 중…</b>`;
+    else if (st.pending) s = `<b>서버에 저장하는 중…</b>`;
     else if (st.has === false) s = `<b>서버에 아직 대회 데이터가 없어요.</b> 지금 내용을 올리면 모든 시청자에게 반영돼요.`;
     else s = `<span class="sync-dot">자동 저장 중${st.savedAt ? " · " + st.savedAt.toLocaleTimeString("ko-KR") + " 저장됨" : ""} · 시청자 화면은 15초 안에 바뀌어요</span>`;
     $("#admStatus").innerHTML = s;
@@ -1342,11 +1353,11 @@ footer b{color:var(--muted);font-weight:500}
     if (Date.now() < st.loginWait) { err.hidden = false; err.textContent = "잠시 후 다시 시도해 주세요."; return; }
     btn.disabled = true; btn.textContent = "로그인 중…";
     try {
-      const { data, error } = await sb.auth.signInWithPassword({ email: $("#lgEmail").value.trim(), password: $("#lgPw").value });
+      const { data, error } = await withTimeout(sb.auth.signInWithPassword({ email: $("#lgEmail").value.trim(), password: $("#lgPw").value }));
       if (error) throw error;
-      st.user = data.user; st.err = "";
-      await pull(false).catch(() => {});
+      st.user = data.user; st.err = ""; setNav();
       renderAdmin();
+      setTimeout(() => pull(false).catch(e => { st.err = "불러오기 실패: " + (e.message || e); renderAdmStatus(); }), 50);
     } catch (x) {
       const m = String(x?.message || x);
       if (/rate|429/i.test(m)) st.loginWait = Date.now() + 30000;
@@ -1389,7 +1400,7 @@ footer b{color:var(--muted);font-weight:500}
     const g = e.target.closest("[data-g]")?.dataset.g;
     if (g === "save") saveFile();
     if (g === "push") pushRemote(true);
-    if (g === "logout" && sb) sb.auth.signOut().then(() => { st.user = null; renderAdmin(); });
+    if (g === "logout" && sb) sb.auth.signOut().finally(() => { st.user = null; setNav(); renderAdmin(); });
   });
 
   body.addEventListener("click", e => {

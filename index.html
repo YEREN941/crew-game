@@ -1099,6 +1099,15 @@ footer b{color:var(--muted);font-weight:500}
     sb = window.supabase.createClient(SB.url, SB.key);
     // 읽기 전용 클라이언트: 로그인 토큰을 쓰지 않아서 토큰 문제(만료·시간 차이)가 있어도 화면은 계속 불러와요
     sbRead = window.supabase.createClient(SB.url, SB.key, { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false, storageKey: "mkud-read" } });
+    // 실시간 반영: 서버 값이 바뀌면 바로 받아요. 연결이 안 되거나 끊기면 15초마다 확인하는 방식이 받쳐 줘요.
+    try {
+      sbRead.channel("undonghoe-live")
+        .on("postgres_changes", { event: "*", schema: "public", table: TABLE(), filter: "id=eq." + ROW() }, payload => {
+          const row = payload.new;
+          if (row && row.data && row.data.crews) applyRemote(row.data, row.updated_at);
+        })
+        .subscribe(status => { st.live = status === "SUBSCRIBED"; renderAdmStatus(); });
+    } catch (e) { st.live = false; }
     sb.auth.getSession().then(({ data }) => {
       st.user = data?.session?.user || null; st.authChecked = true; setNav(); renderAdmin();
     }, () => { st.authChecked = true; renderAdmin(); });
@@ -1112,10 +1121,16 @@ footer b{color:var(--muted);font-weight:500}
       }, 0);
     });
   }
+  const clearDraft = () => { store.del("draft"); store.del("draftAt"); };
   function applyRemote(obj, stamp) {
     if (!obj || !obj.crews) return;
     st.has = true; st.stamp = stamp || st.stamp;
-    store.del("draft");
+    // 이 브라우저에 아직 서버에 못 올린 수정이 있으면: 서버보다 최신일 때 그걸 올리고, 아니면 버려요
+    const draft = store.get("draft", null);
+    if (draft && st.user && !st.pending) {
+      if (store.get("draftAt", 0) > Date.parse(stamp || 0)) { C = draft; renderSite(); pushRemote(true, true); return; }
+      clearDraft();
+    }
     if (st.pending || same(obj, C)) { renderAdmStatus(); return; }
     C = obj; renderSite();
     if (view === "admin" && !$("#admBody").contains(document.activeElement)) renderAdmin(); else renderAdmStatus();
@@ -1131,7 +1146,12 @@ footer b{color:var(--muted);font-weight:500}
     if (error) throw error;
     if (/^불러오기/.test(st.err)) st.err = "";
     if (data && data.data && data.data.crews) applyRemote(data.data, data.updated_at);
-    else { st.has = false; renderAdmStatus(); }
+    else {
+      st.has = false;
+      // 서버가 비어 있으면 관리자가 로그인해 있는 순간 바로 지금 내용을 올려요 (버튼 필요 없음)
+      if (st.user && !st.pending) { const d = store.get("draft", null); if (d && d.crews) { C = d; renderSite(); } pushRemote(true, true); }
+      renderAdmStatus();
+    }
   }
   function startPolling() {
     if (!sb) return;
@@ -1142,28 +1162,32 @@ footer b{color:var(--muted);font-weight:500}
   const saveErr = e => {
     const m = String(e?.message || e?.code || e);
     if (e?.code === "42501" || /row-level security|permission/i.test(m)) return "저장 권한이 없어요. supabase-security.sql 2번(쓰기 규칙)이 적용됐는지 확인해 주세요.";
-    if (isClockErr(e)) return "서버 시간 차이로 저장이 거절됐어요. 컴퓨터 시간이 정확한지 확인(Windows 설정 → 시간 → 지금 동기화)한 뒤 다시 로그인해 주세요.";
+    if (isClockErr(e)) return "Supabase 서버 오류(JWT issued at future)로 저장이 거절됐어요. Supabase 대시보드에서 프로젝트를 업그레이드하거나 재시작해 주세요. 수정한 내용은 이 브라우저에 보관 중이에요";
     if (/jwt|expired|401/i.test(m)) return "로그인이 만료됐어요. 로그아웃 후 다시 로그인해 주세요.";
     if (/429|rate/i.test(m)) return "요청이 너무 많아요. 잠시 후 자동으로 다시 저장해요.";
     return "저장 실패: " + m;
   };
-  function pushRemote(now) {
-    if (!sb || !st.user) { if (now) toast("관리자 로그인이 필요해요."); return; }
-    st.pending = true; const v = ++st.ver; clearTimeout(st.t);
+  function pushRemote(now, quiet) {
+    if (!sb || !st.user) { if (now && !quiet) toast("관리자 로그인이 필요해요."); return; }
+    // 저장이 끝날 때까지 이 브라우저에도 보관 (창을 닫거나 저장이 실패해도 안 사라지게)
+    store.set("draft", C); store.set("draftAt", Date.now());
+    st.pending = true; const v = ++st.ver; clearTimeout(st.t); clearTimeout(st.retry);
     st.t = setTimeout(async () => {
       const updated_at = new Date().toISOString();
       try {
         const { error } = await withTimeout(retryClock(() => sb.from(TABLE()).upsert({ id: ROW(), data: clone(C), updated_at }, { onConflict: "id" })), 20000);
         if (error) throw error;
+        const first = st.has === false;
         st.err = ""; st.has = true; st.stamp = updated_at; st.savedAt = new Date();
-        if (now) toast("서버에 올렸어요. 이제 모든 시청자에게 보여요.");
-        store.del("draft");
-        if (v === st.ver) st.pending = false;
+        if (first) toast("서버에 처음 저장했어요. 이제 모든 시청자에게 보여요.");
+        if (v === st.ver) { st.pending = false; clearDraft(); }
       } catch (e) {
-        st.err = saveErr(e);
-        if (now) toast(st.err);
-        if (/429|rate/i.test(String(e?.message))) { setTimeout(() => { if (v === st.ver) pushRemote(true); }, 5000); }
-        else if (v === st.ver) { st.pending = false; store.set("draft", C); }
+        st.err = saveErr(e) + " · 10초 뒤 자동으로 다시 저장해요";
+        if (!quiet && now) toast(st.err);
+        if (v === st.ver) {
+          st.pending = false;
+          st.retry = setTimeout(() => { if (v === st.ver && st.user) pushRemote(true, true); }, 10000);
+        }
       }
       renderAdmStatus();
     }, now ? 0 : 600);
@@ -1187,12 +1211,11 @@ footer b{color:var(--muted);font-weight:500}
     else if (!st.user) s = st.authChecked ? "관리자 로그인이 필요해요" : "로그인 상태 확인 중…";
     else if (st.err) s = `<span class="bad">${esc(st.err)}</span>`;
     else if (st.pending) s = `<b>서버에 저장하는 중…</b>`;
-    else if (st.has === false) s = `<b>서버에 아직 대회 데이터가 없어요.</b> 지금 내용을 올리면 모든 시청자에게 반영돼요.`;
-    else s = `<span class="sync-dot">자동 저장 중${st.savedAt ? " · " + st.savedAt.toLocaleTimeString("ko-KR") + " 저장됨" : ""} · 시청자 화면은 15초 안에 바뀌어요</span>`;
+    else if (st.has === false) s = `<b>서버에 처음 저장하는 중…</b>`;
+    else s = `<span class="sync-dot">자동 저장 중${st.savedAt ? " · " + st.savedAt.toLocaleTimeString("ko-KR") + " 저장됨" : ""} · 고치면 시청자 화면에 ${st.live ? "바로" : "15초 안에"} 반영돼요</span>`;
     $("#admStatus").innerHTML = s;
     const right = [];
     if (st.user) {
-      if (st.has === false) right.push(`<button type="button" class="btn primary" data-g="push">지금 내용 올리기</button>`);
       right.push(`<span class="preview" style="align-self:center">${esc(st.user.email || "")}</span><button type="button" class="btn" data-g="logout">로그아웃</button>`);
     }
     $("#admRight").innerHTML = right.join("");
@@ -1367,7 +1390,7 @@ footer b{color:var(--muted);font-weight:500}
 
   function renderAdmin() {
     if (view !== "admin") return;
-    $("#admIntro").innerHTML = "관리자로 로그인한 뒤 고치면 바로 서버에 저장되고, 모든 시청자 화면에 15초 안에 반영돼요. 파일을 다시 올릴 필요가 없어요.";
+    $("#admIntro").innerHTML = "관리자로 로그인한 뒤 고치면 저장 버튼 없이 바로 서버에 저장되고, 모든 시청자 화면에 실시간으로 반영돼요.";
     if (!canEdit()) {
       $("#admTabs").hidden = true;
       $("#admBody").innerHTML = admLogin();

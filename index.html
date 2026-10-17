@@ -19,7 +19,7 @@ const CONFIG = {
   "hostedBy": "진드기가 여는",
   "splash": "크루 4파전!",
   "date": "2026.10.25 (일) 저녁 7시",
-  "intro": "진드기가 여는 마인크래프트 대운동회! 4개 크루, 40명의 스트리머가 이어달리기부터 건축 대결까지 여러 종목으로 겨뤄요. 마지막 계주는 점수 2배, 우승 크루는 폐막식에서 발표돼요.",
+  "teaser": "",
   "host": { "name": "진드기", "id": "HOST_SOOP_ID" },
   "maxMembers": 10,
   "points": [100, 70, 50, 30],
@@ -149,58 +149,28 @@ main{flex:1;padding-block:24px 48px}
 .view-sub{color:var(--muted);margin:0 0 20px;font-size:14px;max-width:70ch}
 
 /* ---------- 홈 ---------- */
-.home{display:grid;gap:30px}
-.home-hero{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(280px,1fr);gap:16px}
-.hero-main{background:var(--panel);border:1px solid var(--line);padding:26px 28px;display:grid;gap:14px;align-content:start}
-.eyebrow{margin:0;font:700 13px var(--f-body);color:var(--gold);letter-spacing:.04em}
-.hero-title{margin:0;font:clamp(26px,3.4vw,38px)/1.2 var(--f-display);letter-spacing:.01em;text-wrap:balance}
-.hero-intro{margin:0;color:#c3c9d4;max-width:62ch;font-size:15.5px;line-height:1.7}
-.hero-stats{display:flex;gap:10px 32px;flex-wrap:wrap;margin:4px 0 0}
-.hero-stats div{display:grid;gap:2px}
-.hero-stats dt{font-size:12px;color:var(--dim)}
-.hero-stats dd{margin:0;font:700 26px/1 var(--f-pixel)}
-.hero-cta{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
-.host-card{background:var(--panel);border:1px solid var(--line);padding:20px;display:grid;gap:16px;align-content:start}
-.host-top{display:flex;gap:14px;align-items:center}
-.ava.xl{width:64px;height:64px;font-size:26px}
-.host-top small{display:block;color:var(--gold);font-size:12px;font-weight:700}
-.host-top b{display:block;font:24px/1.2 var(--f-display);font-weight:400}
-.host-btns{display:flex;gap:8px;flex-wrap:wrap}
-.now-box{border-top:1px solid var(--line);padding-top:14px;display:grid;gap:6px}
-.now-box .lbl{display:flex;gap:8px;align-items:center;font-size:12px;color:var(--dim)}
-.now-box b{font:19px/1.3 var(--f-display);font-weight:400}
-.now-box p{margin:0;color:var(--muted);font-size:13.5px}
+.home{display:grid;gap:28px}
+.teaser{display:grid;gap:10px;justify-items:center}
+.teaser-box{position:relative;aspect-ratio:16/9;width:min(100%, calc((100vh - 240px) * 16 / 9), 1120px);min-width:min(100%, 520px);background:#000;border:1px solid var(--line)}
+.teaser-box iframe,.teaser-box video{position:absolute;inset:0;width:100%;height:100%;border:0;display:block}
 .sec-head{display:flex;justify-content:space-between;align-items:center;gap:10px 16px;flex-wrap:wrap;margin-bottom:12px}
-.sec-title{margin:0;font:21px var(--f-display);letter-spacing:.01em}
-.more{color:var(--muted);font-size:13.5px;text-decoration:none}
-.more:hover{color:var(--fg)}
-.mini-ranks{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
-.mr{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:8px 12px;align-items:center;background:var(--panel);border:1px solid var(--line);border-top:4px solid var(--c);padding:12px 14px;text-decoration:none}
-.mr-rank{font:700 20px/1 var(--f-pixel);color:var(--muted)}
-.mr.first .mr-rank{color:var(--gold)}
-.mr-name{font:17px var(--f-display);color:var(--c);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.mr-pts{font:700 18px/1 var(--f-pixel)}
-.mr .meter{grid-column:1/-1;height:6px}
+.sec-title{margin:0;font:22px var(--f-display);letter-spacing:.01em}
+.sec-title small{font:500 14px var(--f-body);color:var(--dim);margin-left:8px}
 .crew-sec{background:var(--panel);border:1px solid var(--line)}
 .crew-sec+.crew-sec{margin-top:12px}
-.crew-sec-h{display:flex;align-items:center;gap:8px 14px;padding:14px 16px;border-bottom:1px solid var(--line);flex-wrap:wrap;
-  background:linear-gradient(90deg, color-mix(in srgb, var(--c) 20%, transparent), transparent 70%)}
-.crew-sec-h .sw{width:38px;height:38px;flex:none;background:var(--c);color:var(--ink);display:grid;place-items:center;font:700 15px var(--f-pixel);box-shadow:inset -3px -3px 0 rgba(0,0,0,.28)}
-.crew-sec-h h4{margin:0;font:22px var(--f-display);font-weight:400}
+.crew-sec-h{display:flex;align-items:baseline;gap:6px 14px;padding:14px 16px;border-bottom:1px solid var(--line);border-left:5px solid var(--c);flex-wrap:wrap}
+.crew-sec-h h4{margin:0;font:21px var(--f-display);font-weight:400;color:var(--c)}
+.crew-sec-h span{color:var(--dim);font-size:13px}
 .crew-sec-h p{margin:0;color:#c3c9d4;font-size:14px;flex:1;min-width:200px}
-.crew-sec-h .pts{font:700 18px var(--f-pixel);margin-left:auto}
 .pgrid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;padding:14px 16px 16px}
-.pc{background:var(--panel-2);border:1px solid var(--line);padding:14px;display:grid;grid-template-rows:auto auto 1fr auto;gap:8px;min-width:0}
-.pc .ava{width:56px;height:56px;font-size:22px}
-.pc-name{font:17px/1.3 var(--f-display);display:flex;gap:6px;align-items:center;flex-wrap:wrap;overflow-wrap:anywhere}
+.pc{background:var(--panel-2);border:1px solid var(--line);padding:12px;display:flex;gap:12px;align-items:flex-start;min-width:0;text-align:left;color:inherit;font:inherit}
+button.pc:hover{border-color:var(--c)}
+.pc .ava{width:48px;height:48px;font-size:20px}
+.pc-txt{min-width:0;display:grid;gap:4px}
+.pc-name{font:16px/1.3 var(--f-display);display:flex;gap:6px;align-items:center;flex-wrap:wrap;overflow-wrap:anywhere}
 .pc-cap{font:700 11px/1.4 var(--f-body);background:var(--c);color:var(--ink);padding:1px 6px}
-.pc-bio{margin:0;color:var(--muted);font-size:13px;line-height:1.55;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
-.pc-act{display:flex;gap:6px;flex-wrap:wrap}
-.pc-act button,.pc-act a{font-size:12.5px;padding:5px 9px;border:1px solid var(--line);background:var(--panel);text-decoration:none;white-space:nowrap}
-.pc-act button{background:var(--c);color:var(--ink);border-color:var(--c);font-weight:700}
-.pc-act a:hover{border-color:var(--muted)}
-.pc-noid{font-size:12px;color:var(--dim)}
-.hero-title,.hero-intro,.view-sub,.crew-sec-h p,.pc-bio,.now-box,.ev-desc{word-break:keep-all;overflow-wrap:anywhere}
+.pc-bio{margin:0;color:var(--muted);font-size:12.5px;line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.crew-sec-h p,.pc-bio{word-break:keep-all;overflow-wrap:anywhere}
 
 /* ---------- 지통실 ---------- */
 .viewer{display:grid;grid-template-columns:250px minmax(0,1fr);gap:20px;align-items:start}
@@ -395,8 +365,6 @@ footer b{color:var(--muted);font-weight:500}
   .ranks{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
 @media (max-width: 860px){
-  .home-hero{grid-template-columns:minmax(0,1fr)}
-  .mini-ranks{grid-template-columns:repeat(2,minmax(0,1fr))}
   .pgrid{grid-template-columns:repeat(3,minmax(0,1fr))}
   .viewer{grid-template-columns:minmax(0,1fr);gap:0}
   .crewpick{position:static;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));border-bottom:0}
@@ -414,12 +382,8 @@ footer b{color:var(--muted);font-weight:500}
   .ev-edit .row{grid-template-columns:80px minmax(0,1fr)}
 }
 @media (max-width: 640px){
-  .mr{grid-template-columns:auto minmax(0,1fr)}
-  .mr-pts{grid-column:1/-1}
   .pgrid{grid-template-columns:repeat(2,minmax(0,1fr));padding:12px;gap:8px}
-  .hero-main{padding:20px 18px}
-  .pc{padding:12px}
-  .crew-sec-h .pts{margin-left:0}
+  .pc{flex-direction:column;gap:8px}
   .mem-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
   .mv-grid.l2,.mv-grid.l3,.mv-grid.l4{grid-template-columns:minmax(0,1fr)}
   .mv-grid.l3 .slot:first-child{grid-row:auto;aspect-ratio:16/9}
@@ -477,16 +441,9 @@ footer b{color:var(--muted);font-weight:500}
 <main>
   <!-- 홈 -->
   <section class="wrap home" id="view-home" data-viewsec="home" hidden>
-    <div class="home-hero">
-      <div class="hero-main" id="heroMain"></div>
-      <aside class="host-card" id="hostCard"></aside>
-    </div>
+    <div class="teaser" id="teaser" hidden></div>
     <div>
-      <div class="sec-head"><h3 class="sec-title">현재 순위</h3><a class="more" href="#score">점수판 자세히 →</a></div>
-      <div class="mini-ranks" id="miniRanks"></div>
-    </div>
-    <div>
-      <div class="sec-head"><h3 class="sec-title">참가자 소개</h3><div class="seg" role="group" aria-label="크루 골라 보기" id="homeFilter"></div></div>
+      <div class="sec-head"><h3 class="sec-title" id="memTitle">참여 멤버</h3><div class="seg" role="group" aria-label="크루 골라 보기" id="homeFilter"></div></div>
       <div id="crewSecs"></div>
     </div>
   </section>
@@ -813,50 +770,44 @@ footer b{color:var(--muted);font-weight:500}
     lastBy[groupOf(id)] = id; store.set("lastBy", lastBy);
     if (view === "viewer") select(id); else location.hash = "#viewer";
   }
+  function teaserSrc(u) {
+    u = (u || "").trim(); if (!u) return null;
+    let m = u.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/|live\/))([\w-]{11})/);
+    if (m) return { type: "iframe", src: `https://www.youtube.com/embed/${m[1]}?rel=0` };
+    m = u.match(/vod\.(?:sooplive\.co\.kr|sooplive\.com|afreecatv\.com)\/player\/(\d+)/);
+    if (m) return { type: "iframe", src: `https://vod.sooplive.co.kr/player/${m[1]}/embed?showChat=false&autoPlay=false` };
+    if (/^https:\/\/.+\.(mp4|webm)(\?|$)/i.test(u)) return { type: "video", src: u };
+    if (/^https:\/\//.test(u)) return { type: "iframe", src: u };
+    return null;
+  }
+  function renderTeaser() {
+    const box = $("#teaser"), t = view === "home" ? teaserSrc(C.teaser) : null;
+    box.hidden = !teaserSrc(C.teaser);
+    const key = t ? t.type + t.src : "";
+    if (box.dataset.key === key) return;
+    box.dataset.key = key;
+    box.innerHTML = !t ? "" : `<div class="teaser-box">${t.type === "video"
+      ? `<video src="${esc(t.src)}" controls playsinline preload="metadata"></video>`
+      : `<iframe src="${esc(t.src)}" title="티저 영상" allow="autoplay; fullscreen; encrypted-media; picture-in-picture" allowfullscreen></iframe>`}</div>`;
+  }
   function renderHome() {
-    const n = people.length - 1;
-    $("#heroMain").innerHTML = `
-      ${C.date ? `<p class="eyebrow">${esc(C.date)} · SOOP 생방송</p>` : ""}
-      <h2 class="hero-title">${C.crews.length}개 크루, ${n}명이 겨루는 ${esc(C.title || "대운동회")}</h2>
-      ${C.intro ? `<p class="hero-intro">${nl2br(C.intro)}</p>` : ""}
-      <dl class="hero-stats">
-        <div><dt>크루</dt><dd>${C.crews.length}</dd></div>
-        <div><dt>참가자</dt><dd>${n}</dd></div>
-        <div><dt>종목·순서</dt><dd>${C.events.length}</dd></div>
-      </dl>
-      <div class="hero-cta"><a class="btn primary" href="#viewer">지통실에서 보기</a><a class="btn" href="#multi">멀티뷰</a><a class="btn" href="#schedule">종목·일정</a></div>`;
-    const h = people[0];
-    const live = C.events.find(e => statusOf(e) === "live"), next = C.events.find(e => statusOf(e) === "upcoming");
-    const ev = live || next;
-    $("#hostCard").innerHTML = `
-      <div class="host-top">${ava(h, "xl")}<div><small>주최</small><b>${esc(h.name)}</b></div></div>
-      <div class="host-btns"><button type="button" class="btn primary" data-watch="${esc(h.id)}">주최 방송 보기</button><a class="btn" href="${stationUrl(h.id)}" target="_blank" rel="noopener">방송국 ↗</a></div>
-      <div class="now-box">
-        <span class="lbl">${live ? `<span class="pill live"><span class="dot"></span>LIVE</span>지금 하는 종목` : next ? `<span class="pill next">NEXT</span>다음 종목` : `<span class="pill done">END</span>모든 종목이 끝났어요`}</span>
-        ${ev ? `<b>${esc(ev.time ? ev.time + " " : "")}${esc(ev.name)}</b>${ev.desc ? `<p>${esc(ev.desc)}</p>` : ""}` : ""}
-      </div>`;
-    const max = Math.max(1, ...S.ranked.map(r => r.pts));
-    $("#miniRanks").innerHTML = S.ranked.map(r => `<a class="mr ${r.rank === 1 && r.pts > 0 ? "first" : ""}" href="#score" style="--c:${r.crew.color}">
-        <span class="mr-rank">${U(r.rank, "위")}</span><span class="mr-name">${esc(r.crew.name)}</span><span class="mr-pts">${U(r.pts, "점")}</span>
-        <span class="meter"><i style="width:${(Math.max(0, r.pts) / max * 100).toFixed(1)}%"></i></span></a>`).join("");
+    renderTeaser();
+    const total = C.crews.reduce((n, c) => n + (c.members || []).filter(m => m.name || m.id).length, 0);
+    $("#memTitle").innerHTML = `참여 멤버<small>${C.crews.length}개 크루 · ${total}명</small>`;
     if (homeFilter !== "all" && !crewByKey[homeFilter]) homeFilter = "all";
     $("#homeFilter").innerHTML = `<button type="button" data-hf="all" aria-pressed="${homeFilter === "all"}">전체</button>` +
       C.crews.map(c => `<button type="button" data-hf="${esc(c.key)}" aria-pressed="${homeFilter === c.key}" style="color:${c.color}">${esc(c.name)}</button>`).join("");
     const crews = homeFilter === "all" ? C.crews : C.crews.filter(c => c.key === homeFilter);
     $("#crewSecs").innerHTML = crews.map(c => {
-      const st = `--c:${c.color};--ink:${ink(c.color)}`;
-      const cards = (c.members || []).filter(m => m.name || m.id).map(m => {
+      const list = (c.members || []).filter(m => m.name || m.id);
+      const cards = list.map(m => {
         const id = (m.id || "").trim(), ok = id && byId(id) && byId(id).crew === c;
         const p = { ...m, id, name: m.name || id, crew: c };
-        return `<article class="pc">
-          ${ava(p)}
-          <div class="pc-name">${esc(p.name)}${m.captain ? `<span class="pc-cap">크루장</span>` : ""}</div>
-          ${m.bio ? `<p class="pc-bio">${esc(m.bio)}</p>` : `<span></span>`}
-          <div class="pc-act">${ok ? `<button type="button" data-watch="${esc(id)}">방송 보기</button><a href="${stationUrl(id)}" target="_blank" rel="noopener">방송국 ↗</a>` : `<span class="pc-noid">방송국 정보 준비 중</span>`}</div>
-        </article>`;
+        const inner = `${ava(p)}<span class="pc-txt"><span class="pc-name">${esc(p.name)}${m.captain ? `<span class="pc-cap">크루장</span>` : ""}</span>${m.bio ? `<span class="pc-bio">${esc(m.bio)}</span>` : ""}</span>`;
+        return ok ? `<button type="button" class="pc" data-watch="${esc(id)}" title="${esc(p.name)} 방송 보기">${inner}</button>` : `<div class="pc">${inner}</div>`;
       }).join("");
-      return `<section class="crew-sec" style="${st}">
-        <div class="crew-sec-h"><span class="sw">${rankOf(c.key)}</span><h4>${esc(c.name)}</h4>${c.desc ? `<p>${esc(c.desc)}</p>` : `<p></p>`}<span class="pts">${U(S.total[c.key], "점")}</span></div>
+      return `<section class="crew-sec" style="--c:${c.color};--ink:${ink(c.color)}">
+        <div class="crew-sec-h"><h4>${esc(c.name)}</h4><span>${list.length}명</span>${c.desc ? `<p>${esc(c.desc)}</p>` : ""}</div>
         <div class="pgrid">${cards || `<p class="empty-note">아직 멤버가 없어요.</p>`}</div>
       </section>`;
     }).join("");
@@ -1265,7 +1216,7 @@ footer b{color:var(--muted);font-weight:500}
         ${f("host.name", "주최 이름", C.host.name)}
         ${f("host.id", "주최 SOOP 아이디", C.host.id)}
       </div>
-      <label class="field"><span>행사 소개 (홈 화면 맨 위에 나와요)</span><textarea class="inp prose" data-b="intro" rows="3">${esc(C.intro)}</textarea></label>
+      <label class="field"><span>티저 영상 링크 (유튜브 또는 SOOP 다시보기 주소 · 비워 두면 홈에서 숨겨요)</span><input class="inp" data-b="teaser" value="${esc(C.teaser)}" placeholder="https://youtu.be/..." autocapitalize="off" spellcheck="false"></label>
       <div class="form-grid">
         <label class="field"><span>순위 배점 (1위부터, 쉼표로 구분)</span><input class="inp" data-b="points" value="${esc((C.points || []).join(", "))}" placeholder="100, 70, 50, 30"></label>
         <label class="field"><span>크루당 최대 인원</span><input class="inp" type="number" min="1" max="30" data-b="maxMembers" value="${esc(MAXM())}"></label>

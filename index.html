@@ -114,9 +114,10 @@ const SYNC = {
 <style>
 /* Layout: 밤하늘 헤더 → 잔디 블록 띠 → 심층암(deepslate) 바탕. 지통실은 왼쪽 크루 선택 | 플레이어 + 아래 멤버 칸 */
 :root{
-  --bg:#16181d; --panel:#1f232a; --panel-2:#282d36; --line:#363c48;
-  --fg:#eef0f3; --muted:#9aa2b1; --dim:#6c7483;
-  --gold:#f5d63d; --sky-1:#0c1530; --sky-2:#23346a;
+  --bg:#22150d; --panel:#3a2414; --panel-2:#4a2f1b; --line:#7a4c24;
+  --fg:#fff3e0; --muted:#e0c49c; --dim:#b08d63;
+  --gold:#f7c548; --sky-1:#4fa6e6; --sky-2:#ffd49a;
+  --maple:#e8641c; --maple-red:#c9301f; --wood-hi:#6b4426; --wood-lo:#2c1a0e; --rim:#d39a3e;
   --live:#ff4d4d; --warn:#ffb35c; --good:#8fdc7b;
   --f-display:"Black Han Sans","Noto Sans KR",system-ui,sans-serif;
   --f-body:"Noto Sans KR",system-ui,-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
@@ -497,12 +498,63 @@ footer b{color:var(--muted);font-weight:500}
   .splash,.dot{animation:none}
   .slot-bar{transition:none}
 }
+
+/* =====================================================================
+   가을 운동회 테마
+   ===================================================================== */
+body{background-color:var(--bg);background-image:var(--leafbg);background-size:220px 220px}
+.sky{background:linear-gradient(180deg,#4aa3e6 0%,#86c6ef 45%,#ffdca8 82%,#ffc77e 100%)}
+.sky::before{background-image:var(--clouds);background-size:384px 192px;background-repeat:repeat-x;opacity:.95}
+.moon{display:none}
+.sun{position:absolute;right:7%;top:56px;width:44px;height:44px;background:#ffe27a;box-shadow:0 0 0 6px rgba(255,226,122,.35),0 0 0 14px rgba(255,226,122,.15),inset -6px -6px 0 #ffc94a;pointer-events:none}
+.bunting{position:absolute;left:0;right:0;top:0;height:44px;background-image:var(--bunting);background-size:144px 44px;background-repeat:repeat-x;pointer-events:none;z-index:1}
+.hills{position:absolute;left:0;right:0;bottom:0;height:54px;background-image:var(--trees);background-size:216px 54px;opacity:.95;background-repeat:repeat-x;image-rendering:pixelated;pointer-events:none}
+.leaves{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:1}
+.top{z-index:2;padding-block:56px 26px}
+.logo-kicker{display:inline-block;color:#fff8e8;font:700 15px var(--f-body);letter-spacing:.08em;background:linear-gradient(#7a4a26,#4e2d16);border:2px solid var(--rim);padding:3px 12px 4px;box-shadow:0 3px 0 rgba(0,0,0,.25)}
+.logo-main{position:relative;margin-top:10px;font-size:clamp(40px,7vw,72px);text-shadow:none;color:#4a220c;-webkit-text-stroke:10px #4a220c;
+  filter:drop-shadow(3px 0 0 #fff7ea) drop-shadow(-3px 0 0 #fff7ea) drop-shadow(0 3px 0 #fff7ea) drop-shadow(0 -3px 0 #fff7ea) drop-shadow(0 7px 0 rgba(60,25,5,.45))}
+.logo-main::after{content:attr(data-text);position:absolute;left:0;top:0;-webkit-text-stroke:0;color:#ffb22e;
+  background:linear-gradient(180deg,#ffec78 0%,#ffbd32 45%,#f2731c 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.splash{top:auto;bottom:-14px;left:auto;right:-26px;margin:0;transform:rotate(-6deg);animation:none;
+  font:17px/1 var(--f-display);color:#fff;text-shadow:0 2px 0 #7d150c;background:linear-gradient(#e2412e,#b52517);padding:7px 22px 8px;
+  clip-path:polygon(0 0,100% 0,94% 50%,100% 100%,0 100%,6% 50%);box-shadow:none}
+.tab{background:linear-gradient(180deg,var(--wood-hi),#46291a 60%,var(--wood-lo));color:#fff3df;border:2px solid var(--rim);
+  box-shadow:inset 0 1px 0 rgba(255,220,160,.25),0 3px 0 rgba(0,0,0,.3);text-shadow:0 2px 0 rgba(0,0,0,.45);padding:10px 16px;border-radius:3px}
+.tab:hover{background:linear-gradient(180deg,#80522e,#55331c 60%,#36200f);box-shadow:inset 0 1px 0 rgba(255,220,160,.35),0 3px 0 rgba(0,0,0,.3)}
+.tab[aria-current="page"]{background:linear-gradient(180deg,#ec5236,#c32d1c 60%,#981c11);color:#fff;border-color:#ffd166;box-shadow:inset 0 1px 0 rgba(255,210,170,.5),0 3px 0 rgba(0,0,0,.3)}
+.tab-adm{color:#ffd77a}
+.grass{border-bottom:4px solid var(--rim);box-shadow:0 4px 0 #1b0f07}
+.ticker{background:linear-gradient(180deg,#3e2614,#2e1b0e);border-bottom:2px solid var(--line)}
+.band.sample{background:#7a3a12;color:#ffe9c7}
+footer{background:#1a0f08;border-top:3px solid var(--line)}
+/* 나무 판자 패널 + 금테 */
+.card,.crewpick,.members,.picker,.crew-sec,.rank-card,.ev,.ev-edit,.info-wood,.login{
+  background-image:repeating-linear-gradient(0deg,rgba(255,255,255,.018) 0 2px,transparent 2px 22px),linear-gradient(180deg,#43291a,#33200f)}
+.crewpick,.crew-sec,.card,.picker{border:2px solid var(--line);box-shadow:inset 0 0 0 1px rgba(255,200,120,.08),0 4px 0 rgba(0,0,0,.25)}
+.crew-sec-h,.side-head{background:linear-gradient(180deg,rgba(255,190,110,.10),transparent)}
+.view-title,.sec-title{color:#ffe1a6;text-shadow:0 2px 0 rgba(0,0,0,.4)}
+.btn.primary,.dbtn.go,.dock-pill{background:linear-gradient(180deg,#ffd75e,#f2a427);border-color:#ffd166;color:#3a1d06}
+.dock{background:rgba(34,20,12,.97);border-top-color:var(--rim)}
+.slot,.player,.teaser-box{border-color:var(--line)}
+.slot.on{border-color:var(--gold)}
+@media (max-width: 860px){
+  .top{padding-block:50px 20px}
+  .splash{right:-8px;font-size:14px;padding:6px 16px 7px}
+  .logo-main{-webkit-text-stroke:7px #4a220c}
+  .logo{margin-bottom:14px}
+}
+@media (max-width: 640px){ .sun{display:none} }
+@media (prefers-reduced-motion: reduce){ .leaves{display:none} }
 </style>
 </head>
 <body>
 
 <div class="sky">
-  <div class="moon" aria-hidden="true"></div>
+  <div class="bunting" aria-hidden="true"></div>
+  <div class="sun" aria-hidden="true"></div>
+  <div class="hills" aria-hidden="true"></div>
+  <canvas class="leaves" id="leaves" aria-hidden="true"></canvas>
   <div class="wrap top">
     <a class="logo" href="#home" aria-label="홈">
       <span class="logo-kicker" id="kicker"></span>
@@ -744,7 +796,7 @@ footer b{color:var(--muted);font-weight:500}
   function grassTile() {
     const c = document.createElement("canvas"); c.width = c.height = 16; const g = c.getContext("2d"), r = rng(11);
     const dirt = ["#866043", "#79553a", "#966c4a", "#6b4a31", "#8b6446", "#5d4029"];
-    const grass = ["#6aa83b", "#5d9a33", "#7cbd47", "#558c2f", "#71b241"];
+    const grass = ["#7f9a32", "#8aa53a", "#6f8a2b", "#97a83c", "#a0702a", "#d9661e", "#c8401d", "#e8a62a"];
     for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) { g.fillStyle = dirt[Math.floor(r() * dirt.length)]; g.fillRect(x, y, 1, 1); }
     for (let x = 0; x < 16; x++) {
       const d = 3 + (r() < .55 ? 1 : 0) + (r() < .3 ? 1 : 0) + (r() < .12 ? 1 : 0);
@@ -752,20 +804,87 @@ footer b{color:var(--muted);font-weight:500}
     }
     return c.toDataURL();
   }
-  function starTile() {
-    const c = document.createElement("canvas"); c.width = c.height = 64; const g = c.getContext("2d"), r = rng(5);
-    for (let i = 0; i < 14; i++) { g.fillStyle = r() < .3 ? "#ffffff" : "rgba(255,255,255,.55)"; g.fillRect(Math.floor(r() * 64), Math.floor(r() * 64), 1, 1); }
+  // 픽셀 단풍잎 (7x7)
+  const LEAF = ["...x...", ".x.x.x.", "xxxxxxx", ".xxxxx.", "xxxxxxx", "...s...", "...s..."];
+  const LEAF_COLORS = [["#e8641c", "#b8410f"], ["#d1321f", "#8f1f12"], ["#f2b02a", "#b9781a"], ["#f08a24", "#b35a12"]];
+  function drawLeaf(g, x0, y0, px, [c, dark], alpha = 1) {
+    g.globalAlpha = alpha;
+    LEAF.forEach((row, y) => [...row].forEach((ch, x) => { if (ch === ".") return; g.fillStyle = ch === "s" ? "#5a3216" : (x + y) % 5 === 0 ? dark : c; g.fillRect(x0 + x * px, y0 + y * px, px, px); }));
+    g.globalAlpha = 1;
+  }
+  function cloudTile() {
+    const c = document.createElement("canvas"); c.width = 128; c.height = 64; const g = c.getContext("2d");
+    const cloud = (x, y, w) => { g.fillStyle = "rgba(255,255,255,.92)"; g.fillRect(x, y + 4, w, 6); g.fillRect(x + 4, y, w - 10, 6); g.fillStyle = "rgba(225,238,250,.9)"; g.fillRect(x + 2, y + 9, w - 4, 2); };
+    cloud(6, 10, 34); cloud(70, 26, 42); cloud(40, 44, 22);
     return c.toDataURL();
   }
-  document.documentElement.style.setProperty("--grass", `url(${grassTile()})`);
-  document.documentElement.style.setProperty("--stars", `url(${starTile()})`);
+  function buntingTile() {
+    const c = document.createElement("canvas"); c.width = 144; c.height = 44; const g = c.getContext("2d");
+    g.strokeStyle = "#5a3216"; g.lineWidth = 2; g.beginPath(); g.moveTo(0, 6); g.quadraticCurveTo(72, 22, 144, 6); g.stroke();
+    const cols = ["#d93a2b", "#fff4e2", "#f39a1e", "#d93a2b", "#fff4e2", "#f39a1e"];
+    for (let i = 0; i < 6; i++) {
+      const x = 6 + i * 23, t = (x / 144), y = 6 + 16 * 4 * t * (1 - t) * 0.5 + 2;
+      g.fillStyle = cols[i]; g.beginPath(); g.moveTo(x, y); g.lineTo(x + 18, y); g.lineTo(x + 9, y + 20); g.closePath(); g.fill();
+      if (cols[i] === "#fff4e2") { g.fillStyle = "#d93a2b"; g.fillRect(x + 4, y + 2, 4, 4); g.fillRect(x + 10, y + 2, 4, 4); g.fillRect(x + 7, y + 7, 4, 4); }
+    }
+    return c.toDataURL();
+  }
+  function treeTile() {
+    const c = document.createElement("canvas"); c.width = 96; c.height = 24; const g = c.getContext("2d"), r = rng(23);
+    const canopy = [["#e8641c", "#c44c12", "#f58a2e"], ["#d1321f", "#a32416", "#e85238"], ["#f2b02a", "#d08a1c", "#ffd055"], ["#9a6a2a", "#7d5320", "#b38338"]];
+    g.fillStyle = "#8a4d24"; g.fillRect(0, 20, 96, 4);
+    for (let i = 0; i < 7; i++) {
+      const cx = 4 + i * 14 + Math.floor(r() * 4), h = 7 + Math.floor(r() * 5), w = 9 + Math.floor(r() * 4), pal = canopy[Math.floor(r() * canopy.length)];
+      g.fillStyle = "#5a3216"; g.fillRect(cx + Math.floor(w / 2) - 1, 24 - 6, 2, 6);
+      for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+        const edge = (y === 0 || y === h - 1) && (x === 0 || x === w - 1); if (edge) continue;
+        g.fillStyle = pal[Math.floor(r() * 3)]; g.fillRect(cx + x, 24 - 5 - h + y, 1, 1);
+      }
+    }
+    return c.toDataURL();
+  }
+  function leafBgTile() {
+    const c = document.createElement("canvas"); c.width = c.height = 110; const g = c.getContext("2d"), r = rng(7);
+    for (let i = 0; i < 4; i++) drawLeaf(g, Math.floor(r() * 96), Math.floor(r() * 96), 2, LEAF_COLORS[i % 4], .07);
+    return c.toDataURL();
+  }
+  const rs = document.documentElement.style;
+  rs.setProperty("--grass", `url(${grassTile()})`);
+  rs.setProperty("--clouds", `url(${cloudTile()})`);
+  rs.setProperty("--bunting", `url(${buntingTile()})`);
+  rs.setProperty("--trees", `url(${treeTile()})`);
+  rs.setProperty("--leafbg", `url(${leafBgTile()})`);
+
+  // 헤더에 떨어지는 단풍 (방송 화면은 가리지 않도록 헤더 안에서만)
+  (function fallingLeaves() {
+    const cv = $("#leaves"); if (!cv || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const g = cv.getContext("2d"), sprites = LEAF_COLORS.map(col => { const s = document.createElement("canvas"); s.width = s.height = 21; drawLeaf(s.getContext("2d"), 0, 0, 3, col); return s; });
+    let W = 0, H = 0, leaves = [];
+    const size = () => { const r = cv.getBoundingClientRect(); W = cv.width = Math.round(r.width); H = cv.height = Math.round(r.height);
+      const n = Math.max(6, Math.min(22, Math.round(W / 70)));
+      while (leaves.length < n) leaves.push(spawn(true)); leaves.length = n; };
+    const spawn = (any) => ({ x: Math.random() * W, y: any ? Math.random() * H : -24, vy: .35 + Math.random() * .55, sway: Math.random() * Math.PI * 2, amp: .4 + Math.random() * .9, rot: Math.random() * 6.28, vr: (Math.random() - .5) * .03, s: sprites[Math.floor(Math.random() * sprites.length)], sc: .7 + Math.random() * .6 });
+    size(); addEventListener("resize", size);
+    const tick = () => {
+      if (!document.hidden) {
+        g.clearRect(0, 0, W, H); g.imageSmoothingEnabled = false;
+        for (let i = 0; i < leaves.length; i++) {
+          const l = leaves[i]; l.sway += .02; l.y += l.vy; l.x += Math.sin(l.sway) * l.amp * .6 + .15; l.rot += l.vr;
+          if (l.y > H + 24 || l.x > W + 24) leaves[i] = spawn(false);
+          g.save(); g.translate(l.x, l.y); g.rotate(l.rot); g.scale(l.sc, l.sc); g.drawImage(l.s, -10, -10); g.restore();
+        }
+      }
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  })();
 
   const ava = (p, cls = "") => `<span class="ava ${cls}" style="--c:${colorOf(p)}"><b aria-hidden="true">${esc([...(p.name || "?")][0])}</b>${p.id ? `<img src="${avatarUrl(p.id)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">` : ""}</span>`;
 
   /* ---------- 헤더 · 안내 · 티커 ---------- */
   function renderHeader() {
     $("#kicker").textContent = C.hostedBy || "";
-    $("#logoMain").textContent = C.title || "";
+    $("#logoMain").textContent = C.title || ""; $("#logoMain").dataset.text = C.title || "";
     $("#splash").textContent = C.splash || "";
     $("#footTitle").textContent = `${C.hostedBy || ""} ${C.title || ""}`.trim();
     $("#footHost").textContent = C.host.name;
